@@ -195,10 +195,10 @@ export class TokenService {
 
   /** Token curto que autoriza apenas a segunda etapa do login. */
   createTotpChallenge(adminId: string): string {
-    return this.jwt.sign(
-      { sub: adminId, type: 'totp_challenge' } satisfies TotpChallengePayload,
-      { secret: this.env.JWT_ACCESS_SECRET, expiresIn: '5m' },
-    );
+    return this.jwt.sign({ sub: adminId, type: 'totp_challenge' } satisfies TotpChallengePayload, {
+      secret: this.env.JWT_ACCESS_SECRET,
+      expiresIn: '5m',
+    });
   }
 
   verifyTotpChallenge(token: string): string {

@@ -32,9 +32,7 @@ function generatePassword(): string {
   const required = [pick(upper), pick(lower), pick(digits), pick(symbols)];
   const rest = Array.from({ length: 14 }, () => pick(all));
 
-  return [...required, ...rest]
-    .sort(() => (randomBytes(1)[0]! % 2 === 0 ? 1 : -1))
-    .join('');
+  return [...required, ...rest].sort(() => (randomBytes(1)[0]! % 2 === 0 ? 1 : -1)).join('');
 }
 
 async function main() {

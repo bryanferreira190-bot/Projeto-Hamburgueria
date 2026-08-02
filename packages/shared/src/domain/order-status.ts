@@ -50,9 +50,7 @@ export function nextStatuses(from: OrderStatus): readonly OrderStatus[] {
  */
 export function nextStatusFor(current: OrderStatus, type: OrderType): OrderStatus | null {
   if (current === OrderStatus.READY) {
-    return type === OrderType.DELIVERY
-      ? OrderStatus.OUT_FOR_DELIVERY
-      : OrderStatus.AWAITING_PICKUP;
+    return type === OrderType.DELIVERY ? OrderStatus.OUT_FOR_DELIVERY : OrderStatus.AWAITING_PICKUP;
   }
   const candidates = TRANSITIONS[current].filter((s) => s !== OrderStatus.CANCELED);
   return candidates[0] ?? null;

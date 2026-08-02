@@ -366,9 +366,7 @@ export function CheckoutPage() {
         )}
 
         {missing.length > 0 && (
-          <p className="text-center text-sm text-cinza-2">
-            Falta preencher: {missing.join(', ')}.
-          </p>
+          <p className="text-center text-sm text-cinza-2">Falta preencher: {missing.join(', ')}.</p>
         )}
 
         <Button

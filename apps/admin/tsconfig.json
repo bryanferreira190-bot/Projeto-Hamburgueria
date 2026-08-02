@@ -1,0 +1,9 @@
+{
+  "extends": "@adventure/config/tsconfig.react.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "types": ["vite/client"]
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

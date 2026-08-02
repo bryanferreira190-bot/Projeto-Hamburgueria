@@ -5,6 +5,29 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-02 — Relatórios consultam `order` direto, não as tabelas de rollup
+
+O schema tem `daily_sales_rollup` e `product_sales_rollup`, criadas justamente
+para o dashboard não varrer a tabela de pedidos. Mas elas ainda estão **vazias**:
+alimentá-las exige job agendado, fila e reprocessamento histórico.
+
+**Decisão.** Os endpoints de relatório consultam `order` e `order_item`
+diretamente, com os índices que já existem (`order(storeId, createdAt)` e
+`order(storeId, status, createdAt)`).
+
+**Por que é aceitável agora.** Com o volume de uma hamburguaria, alguns milhares
+de pedidos por ano, a consulta agregada roda em milissegundos. Otimizar antes de
+existir o problema custaria complexidade sem retorno.
+
+**O que protege o futuro.** O formato da resposta dos endpoints foi desenhado
+para ser idêntico ao que as rollups produzirão. Trocar a fonte de dados depois
+é mudança interna do serviço, e nenhum frontend precisa ser alterado.
+
+**Quando revisar.** Quando o dashboard passar de ~300 ms, ou ao ultrapassar
+mais ou menos 50 mil pedidos. Aí entra o job de rollup.
+
+---
+
 ## 2026-08-02 — Documentação da API sem `@nestjs/swagger` (por enquanto)
 
 **Contexto.** `@nestjs/swagger@11.4.6` fixa `js-yaml` na versão exata `5.2.1`,

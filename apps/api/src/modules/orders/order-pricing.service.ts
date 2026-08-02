@@ -167,7 +167,9 @@ export class OrderPricingService {
 
     const allowedOptions = new Map(
       groups.flatMap((group) =>
-        group.options.filter((option) => option.isActive).map((option) => [option.id, { option, group }]),
+        group.options
+          .filter((option) => option.isActive)
+          .map((option) => [option.id, { option, group }]),
       ),
     );
 
@@ -241,9 +243,7 @@ export class OrderPricingService {
         ? subtotalCents - applyPercentDiscount(subtotalCents, coupon.discountValue)
         : coupon.discountValue;
 
-    const capped = coupon.maxDiscountCents
-      ? Math.min(discount, coupon.maxDiscountCents)
-      : discount;
+    const capped = coupon.maxDiscountCents ? Math.min(discount, coupon.maxDiscountCents) : discount;
 
     /* Nunca deixar o desconto ultrapassar o subtotal: o total do pedido
        jamais pode ficar negativo. */

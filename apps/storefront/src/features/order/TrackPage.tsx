@@ -68,7 +68,11 @@ function OrderDetail({ number }: { number: string }) {
   const [cancelReason, setCancelReason] = useState('');
   const [showCancel, setShowCancel] = useState(false);
 
-  const { data: order, isLoading, isError } = useQuery({
+  const {
+    data: order,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['order', number],
     queryFn: () => api.trackOrder(number),
     /* Enquanto o pedido esta ativo, revalida sozinho para o cliente ver o
@@ -143,9 +147,7 @@ function OrderDetail({ number }: { number: string }) {
                 <div
                   className={cx(
                     'grid size-11 shrink-0 place-items-center rounded-full border-2 text-lg transition-colors',
-                    done
-                      ? 'border-amarelo bg-amarelo/15'
-                      : 'border-borda bg-preto-3 opacity-40',
+                    done ? 'border-amarelo bg-amarelo/15' : 'border-borda bg-preto-3 opacity-40',
                     active && 'animate-pulse',
                   )}
                 >
@@ -189,7 +191,8 @@ function OrderDetail({ number }: { number: string }) {
         </dl>
 
         <p className="mt-3 text-xs text-cinza-2">
-          Pagamento: {PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod] ?? order.paymentMethod}
+          Pagamento:{' '}
+          {PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod] ?? order.paymentMethod}
         </p>
       </section>
 
@@ -224,7 +227,10 @@ function OrderDetail({ number }: { number: string }) {
       {showCancel && (
         <section className="rounded-2xl border border-vermelho/40 bg-vermelho/8 p-5">
           <h2 className="mb-3 font-bold">Cancelar pedido</h2>
-          <Field label="Motivo" error={cancel.error instanceof ApiError ? cancel.error.detail : undefined}>
+          <Field
+            label="Motivo"
+            error={cancel.error instanceof ApiError ? cancel.error.detail : undefined}
+          >
             <Input
               value={cancelReason}
               onChange={(event) => setCancelReason(event.target.value)}

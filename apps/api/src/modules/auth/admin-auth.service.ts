@@ -162,7 +162,9 @@ export class AdminAuthService {
   }
 
   /** Gera o segredo e o QR Code. So passa a valer apos confirmacao com um codigo. */
-  async startTotpSetup(adminId: string): Promise<{ secret: string; otpAuthUrl: string; qrCode: string }> {
+  async startTotpSetup(
+    adminId: string,
+  ): Promise<{ secret: string; otpAuthUrl: string; qrCode: string }> {
     const admin = await this.prisma.adminUser.findUnique({ where: { id: adminId } });
     if (!admin) throw new UnauthorizedException();
 

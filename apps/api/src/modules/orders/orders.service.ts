@@ -374,7 +374,7 @@ export class OrdersService {
       where: { storeId, createdAt: { gte: startOfDay } },
     });
 
-    const letter = String.fromCharCode(65 + Math.floor(todayCount / 999) % 26);
+    const letter = String.fromCharCode(65 + (Math.floor(todayCount / 999) % 26));
     return `${letter}${String((todayCount % 999) + 1).padStart(3, '0')}`;
   }
 }

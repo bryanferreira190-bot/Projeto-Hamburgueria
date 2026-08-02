@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+
+/**
+ * TOKENS DO PAINEL
+ *
+ * A marca (amarelo/vermelho/Anton) vem da landing. As cores de GRAFICO sao
+ * separadas de proposito: o amarelo da marca tem L 0.85, claro demais para
+ * servir de preenchimento sobre fundo escuro. As series usam passos
+ * validados — ver DECISOES.md.
+ */
+@theme {
+  /* Marca — usada em texto, botoes e destaques */
+  --color-preto: #0a0a0a;
+  --color-preto-2: #111111;
+  --color-preto-3: #171717;
+  --color-carvao: #1f1f1f;
+  --color-borda: #2a2a2a;
+  --color-cinza: #a8a8a8;
+  --color-cinza-2: #6f6f6f;
+  --color-amarelo: #ffc21a;
+  --color-vermelho: #e01f26;
+  --color-vermelho-2: #ff3b41;
+
+  /* Series de grafico — paleta categorica validada (CVD ΔE 16.0) */
+  --color-serie-1: #c98500;
+  --color-serie-2: #3987e5;
+  --color-serie-3: #199e70;
+  --color-serie-4: #9085e9;
+  --color-serie-5: #d55181;
+
+  /* Cromo do grafico */
+  --color-grade: #2c2c2a;
+  --color-eixo: #383835;
+  --color-tinta-muda: #898781;
+  --color-tinta-2: #c3c2b7;
+
+  /* Status — nunca reaproveitados como cor de serie */
+  --color-bom: #0ca30c;
+  --color-critico: #d03b3b;
+
+  --font-display: 'Anton', Impact, sans-serif;
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-preto text-white antialiased;
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    @apply bg-amarelo text-preto;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-preto;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-carvao rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-cinza-2;
+  }
+}
+
+@layer components {
+  .titulo-display {
+    font-family: var(--font-display);
+    @apply uppercase leading-none tracking-wide;
+  }
+
+  /* Numeros que se alinham em coluna precisam de largura fixa por digito */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

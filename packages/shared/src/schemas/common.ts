@@ -15,9 +15,7 @@ export const phoneSchema = z
   .string()
   .transform(onlyDigits)
   .pipe(
-    z
-      .string()
-      .regex(/^[1-9]{2}9\d{8}$/, 'Informe um celular valido com DDD. Ex.: (11) 99999-9999'),
+    z.string().regex(/^[1-9]{2}9\d{8}$/, 'Informe um celular valido com DDD. Ex.: (11) 99999-9999'),
   );
 
 export const cepSchema = z
@@ -41,7 +39,7 @@ function isValidCpf(cpf: string): boolean {
     for (let i = 0; i < position; i++) {
       sum += (digits[i] ?? 0) * (position + 1 - i);
     }
-    const remainder = (sum * 10) % 11 % 10;
+    const remainder = ((sum * 10) % 11) % 10;
     if (remainder !== digits[position]) return false;
   }
   return true;

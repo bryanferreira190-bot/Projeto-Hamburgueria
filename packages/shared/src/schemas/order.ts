@@ -57,8 +57,7 @@ export const createOrderSchema = z
   ])
   .refine(
     (order) =>
-      order.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY ||
-      order.changeForCents !== undefined,
+      order.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY || order.changeForCents !== undefined,
     { message: 'Informe para quanto precisa de troco', path: ['changeForCents'] },
   );
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
@@ -78,7 +77,9 @@ export const listOrdersFilterSchema = z.object({
   status: z
     .union([z.nativeEnum(OrderStatus), z.array(z.nativeEnum(OrderStatus))])
     .optional()
-    .transform((value) => (value === undefined ? undefined : Array.isArray(value) ? value : [value])),
+    .transform((value) =>
+      value === undefined ? undefined : Array.isArray(value) ? value : [value],
+    ),
   type: z.nativeEnum(OrderType).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),

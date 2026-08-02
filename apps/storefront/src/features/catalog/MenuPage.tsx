@@ -8,7 +8,12 @@ export function MenuPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const { data: categories, isLoading, isError, refetch } = useQuery({
+  const {
+    data: categories,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['menu'],
     queryFn: api.getMenu,
     staleTime: 5 * 60_000,
@@ -115,9 +120,7 @@ export function MenuPage() {
             <h2 className="titulo-display mb-5 flex items-center gap-3 text-2xl">
               <span className="text-vermelho">›</span>
               {category.name}
-              <span className="text-sm font-normal text-cinza-2">
-                ({category.products.length})
-              </span>
+              <span className="text-sm font-normal text-cinza-2">({category.products.length})</span>
             </h2>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
