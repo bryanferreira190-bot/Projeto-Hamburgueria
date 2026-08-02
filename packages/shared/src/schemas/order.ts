@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { OrderStatus, OrderType, PaymentMethod } from '../domain/enums.js';
 import { centsSchema, uuidSchema } from './common.js';
+import { addressSchema } from './customer.js';
+import { phoneSchema } from './common.js';
 
 /**
  * SCHEMA DE CRIACAO DE PEDIDO
@@ -22,13 +24,21 @@ export const orderItemInputSchema = z.object({
 });
 export type OrderItemInput = z.infer<typeof orderItemInputSchema>;
 
+/** Identificacao minima para contato e entrega. */
+export const orderCustomerSchema = z.object({
+  name: z.string().trim().min(2, 'Informe seu nome').max(120),
+  phone: phoneSchema,
+});
+export type OrderCustomerInput = z.infer<typeof orderCustomerSchema>;
+
 const baseOrderSchema = z.object({
+  customer: orderCustomerSchema,
   items: z.array(orderItemInputSchema).min(1, 'Adicione ao menos um item'),
   paymentMethod: z.nativeEnum(PaymentMethod),
   couponCode: z.string().trim().toUpperCase().max(40).optional(),
   notes: z.string().trim().max(300).optional(),
   /* Quanto o cliente vai pagar em dinheiro, para o entregador levar troco. */
-  changeFor: centsSchema.optional(),
+  changeForCents: centsSchema.optional(),
 });
 
 /**
@@ -39,15 +49,17 @@ export const createOrderSchema = z
   .discriminatedUnion('type', [
     baseOrderSchema.extend({
       type: z.literal(OrderType.DELIVERY),
-      addressId: uuidSchema,
+      address: addressSchema,
     }),
     baseOrderSchema.extend({
       type: z.literal(OrderType.PICKUP),
     }),
   ])
   .refine(
-    (order) => order.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY || order.changeFor !== undefined,
-    { message: 'Informe para quanto precisa de troco', path: ['changeFor'] },
+    (order) =>
+      order.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY ||
+      order.changeForCents !== undefined,
+    { message: 'Informe para quanto precisa de troco', path: ['changeForCents'] },
   );
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
@@ -63,10 +75,21 @@ export const cancelOrderSchema = z.object({
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 
 export const listOrdersFilterSchema = z.object({
-  status: z.array(z.nativeEnum(OrderStatus)).optional(),
+  status: z
+    .union([z.nativeEnum(OrderStatus), z.array(z.nativeEnum(OrderStatus))])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : Array.isArray(value) ? value : [value])),
   type: z.nativeEnum(OrderType).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   search: z.string().trim().max(80).optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type ListOrdersFilter = z.infer<typeof listOrdersFilterSchema>;
+
+/** Consulta de taxa de entrega antes de fechar o pedido. */
+export const deliveryQuoteSchema = z.object({
+  district: z.string().trim().min(2, 'Informe o bairro').max(120),
+});
+export type DeliveryQuoteInput = z.infer<typeof deliveryQuoteSchema>;

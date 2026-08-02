@@ -8,7 +8,9 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AdminAuthGuard } from './modules/auth/guards/admin-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
 import { HealthModule } from './modules/health/health.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { StoreModule } from './modules/store/store.module';
 
 @Module({
@@ -32,6 +34,8 @@ import { StoreModule } from './modules/store/store.module';
     HealthModule,
     StoreModule,
     CatalogModule,
+    DeliveryModule,
+    OrdersModule,
   ],
   providers: [
     /**

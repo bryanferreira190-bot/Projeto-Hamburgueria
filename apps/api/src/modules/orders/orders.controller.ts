@@ -1,0 +1,91 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import {
+  AdminRole,
+  cancelOrderSchema,
+  createOrderSchema,
+  listOrdersFilterSchema,
+  updateOrderStatusSchema,
+  type CancelOrderInput,
+  type CreateOrderInput,
+  type ListOrdersFilter,
+  type UpdateOrderStatusInput,
+} from '@adventure/shared';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { CurrentAdmin, Public, RequireRole } from '../auth/decorators';
+import { OrdersService } from './orders.service';
+
+@Controller('orders')
+export class OrdersController {
+  constructor(private readonly orders: OrdersService) {}
+
+  /**
+   * Criacao de pedido.
+   *
+   * Limite proprio: criar pedido escreve no banco e aciona a cozinha, entao
+   * merece um teto mais baixo que o das rotas de leitura.
+   */
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(
+    @Body(new ZodValidationPipe(createOrderSchema)) body: CreateOrderInput,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    return this.orders.create(body, idempotencyKey);
+  }
+
+  /** Acompanhamento pelo numero curto do pedido. */
+  @Public()
+  @Get('track/:number')
+  track(@Param('number') number: string) {
+    return this.orders.findByNumber(number);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('track/:number/cancel')
+  @HttpCode(HttpStatus.OK)
+  cancel(
+    @Param('number') number: string,
+    @Body(new ZodValidationPipe(cancelOrderSchema)) body: CancelOrderInput,
+  ) {
+    return this.orders.cancelByCustomer(number, body.reason);
+  }
+
+  /* ---------------- Rotas administrativas ---------------- */
+
+  @RequireRole(AdminRole.KITCHEN)
+  @Get()
+  list(@Query(new ZodValidationPipe(listOrdersFilterSchema)) filter: ListOrdersFilter) {
+    return this.orders.list(filter);
+  }
+
+  @RequireRole(AdminRole.KITCHEN)
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.orders.findById(id);
+  }
+
+  @RequireRole(AdminRole.KITCHEN)
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateOrderStatusSchema)) body: UpdateOrderStatusInput,
+    @CurrentAdmin('sub') adminId: string,
+  ) {
+    return this.orders.updateStatus(id, body.status, { adminId, reason: body.reason });
+  }
+}
