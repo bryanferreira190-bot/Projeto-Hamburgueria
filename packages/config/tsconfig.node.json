@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Node (API / pacotes)",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"],
+
+    /* O NestJS depende destes dois para os decoradores funcionarem. */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}

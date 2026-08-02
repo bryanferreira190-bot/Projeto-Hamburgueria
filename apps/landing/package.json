@@ -1,0 +1,15 @@
+{
+  "name": "@adventure/landing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Landing page institucional — HTML/CSS/JS puro, sem etapa de build",
+  "scripts": {
+    "dev": "serve . --listen 4000",
+    "build": "echo \"landing e estatica — nada a compilar\"",
+    "lint": "echo \"landing sem lint configurado\"",
+    "typecheck": "echo \"landing sem typescript\""
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

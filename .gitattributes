@@ -1,0 +1,28 @@
+# ============================================================
+#  Normalizacao de quebras de linha
+#  Sem isto, um arquivo salvo no Windows (CRLF) aparece como
+#  totalmente modificado para quem usa Linux ou Mac.
+#  Padrao: LF no repositorio, conversao automatica no checkout.
+# ============================================================
+* text=auto eol=lf
+
+# Scripts do Windows precisam de CRLF para rodar corretamente
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binarios: nunca converter
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.mp4  binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.pdf  binary
+
+# Gerado automaticamente: colapsar nas revisoes de codigo
+package-lock.json linguist-generated=true -diff

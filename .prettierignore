@@ -1,0 +1,18 @@
+# ============================================================
+#  A LANDING NAO E FORMATADA AUTOMATICAMENTE
+#  O HTML e o CSS foram ajustados a mao, com espacamento e
+#  agrupamento proprios. Rodar o Prettier neles reescreveria
+#  o arquivo inteiro e destruiria essa formatacao.
+# ============================================================
+apps/landing/
+
+# Gerados
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+package-lock.json
+
+# Prisma cuida da propria formatacao (prisma format)
+**/*.prisma
