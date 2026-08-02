@@ -1,11 +1,13 @@
 import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
+import { Public } from '../auth/decorators';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
 /**
  * Endpoints de saude, usados por balanceador de carga e monitoramento.
  * Ficam fora do rate limiting: o monitor consulta com frequencia alta.
  */
+@Public()
 @SkipThrottle()
 @Controller('health')
 export class HealthController {

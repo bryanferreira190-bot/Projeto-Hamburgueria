@@ -4,6 +4,7 @@ import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
@@ -21,6 +22,9 @@ async function bootstrap(): Promise<void> {
   });
 
   app.setGlobalPrefix('api/v1');
+
+  /* Necessario para ler o refresh token, que fica em cookie httpOnly. */
+  app.use(cookieParser());
 
   /* Cabecalhos de seguranca. CSP fica desligada porque a API devolve JSON,
      nao HTML; quem serve pagina e o storefront. */

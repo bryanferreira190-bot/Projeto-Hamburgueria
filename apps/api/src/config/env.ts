@@ -21,6 +21,12 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(MIN_SECRET_LENGTH, secretMessage('JWT_REFRESH_SECRET')),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
+  /* Cifra o segredo TOTP em repouso. Perder esta chave invalida os 2FA ativos. */
+  ENCRYPTION_KEY: z.string().min(MIN_SECRET_LENGTH, secretMessage('ENCRYPTION_KEY')),
+
+  /* Quantas falhas de senha antes de bloquear a conta temporariamente. */
+  LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
+  LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
 
   /* Lista separada por virgula; o CORS opera por allowlist, nunca "*". */
   CORS_ORIGINS: z
@@ -61,9 +67,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const env = parsed.data;
 
   if (env.NODE_ENV === 'production') {
-    const placeholders = (['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const).filter((key) =>
-      env[key].includes('trocar_este_valor'),
-    );
+    const placeholders = (
+      ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'ENCRYPTION_KEY'] as const
+    ).filter((key) => env[key].includes('trocar_este_valor'));
     if (placeholders.length > 0) {
       throw new Error(
         `Segredos ainda com valor de exemplo em producao: ${placeholders.join(', ')}`,
@@ -71,6 +77,12 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
     if (env.CORS_ORIGINS.length === 0) {
       throw new Error('CORS_ORIGINS nao pode ficar vazio em producao');
+    }
+
+    /* Reaproveitar o mesmo segredo faz um token de refresh valer como access. */
+    const secrets = [env.JWT_ACCESS_SECRET, env.JWT_REFRESH_SECRET, env.ENCRYPTION_KEY];
+    if (new Set(secrets).size !== secrets.length) {
+      throw new Error('JWT_ACCESS_SECRET, JWT_REFRESH_SECRET e ENCRYPTION_KEY devem ser distintos');
     }
   }
 

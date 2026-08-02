@@ -1,6 +1,9 @@
 import { Controller, Get, Param } from '@nestjs/common';
+import { Public } from '../auth/decorators';
 import { CatalogService, type CategoryDto, type ProductDto } from './catalog.service';
 
+/* O cardapio e vitrine: aberto, sem autenticacao. */
+@Public()
 @Controller('catalog')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}

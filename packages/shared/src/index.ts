@@ -13,3 +13,4 @@ export * from './domain/order-status.js';
 export * from './schemas/common.js';
 export * from './schemas/customer.js';
 export * from './schemas/order.js';
+export * from './schemas/admin.js';
