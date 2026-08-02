@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adventure Burguer — Hamburgueria Artesanal desde 2018</title>
+  <meta name="description" content="Há mais de 8 anos levando hambúrgueres artesanais de qualidade. Carne fresca, pão macio e a exclusiva maionese da casa. Peça online.">
+  <meta name="theme-color" content="#0d0d0d">
+
+  <!-- ===== REDES SOCIAIS / COMPARTILHAMENTO =====
+       IMAGEM: assets/img/og-cover.jpg  |  TAMANHO: 1200 x 630 px  |  JPG, até 300KB -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Adventure Burguer — Hamburgueria Artesanal">
+  <meta property="og:description" content="Hambúrgueres artesanais desde 2018. Peça online agora.">
+  <meta property="og:image" content="assets/img/og-cover.jpg">
+
+  <!-- FAVICON: assets/img/favicon.png | TAMANHO: 512 x 512 px | PNG -->
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ================= BARRA DE TOPO ================= -->
+<div class="topbar">
+  <div class="wrap topbar__inner">
+    <span class="topbar__item">🔥 Artesanal de verdade desde 2018</span>
+    <span class="topbar__sep"></span>
+    <span class="topbar__item" id="statusPill" data-status="loading">
+      <span class="dot"></span><span id="statusText">Verificando horário…</span>
+    </span>
+  </div>
+</div>
+
+<!-- ================= NAVEGAÇÃO ================= -->
+<header class="nav" id="nav">
+  <div class="wrap nav__inner">
+    <a href="#hero" class="nav__brand">
+      <!-- LOGO: assets/img/logo.png | TAMANHO: 512 x 512 px | PNG com fundo transparente -->
+      <img src="assets/img/logo.png" alt="Adventure Burguer" class="nav__logo" width="512" height="512">
+      <span class="nav__name">Adventure<em>Burguer</em></span>
+    </a>
+
+    <nav class="nav__links" id="navLinks">
+      <a href="#promocoes">Promoções</a>
+      <a href="#cardapio">Cardápio</a>
+      <a href="#sobre">Quem Somos</a>
+      <a href="#avaliacoes">Avaliações</a>
+      <a href="#horarios">Horários</a>
+      <a href="#contato">Contato</a>
+      <a class="btn btn--primary nav__cta js-pedido" href="#" data-label="nav-mobile">Peça Online</a>
+    </nav>
+
+    <a class="btn btn--primary nav__cta--desk js-pedido" href="#" data-label="nav-desktop">
+      <span class="btn__icon">🛵</span> Peça Online
+    </a>
+
+    <button class="nav__burger" id="navBurger" aria-label="Abrir menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="hero">
+  <!-- ===== IMAGEM DE FUNDO DO HERO =====
+       ARQUIVO: assets/img/hero.jpg
+       TAMANHO: 1920 x 1080 px (16:9) — foto do burger em close, fundo escuro
+       PESO IDEAL: até 400KB (JPG comprimido)
+       Trocar em: assets/css/style.css → .hero__bg { background-image: ... } -->
+  <div class="hero__bg" aria-hidden="true"></div>
+  <div class="hero__scrim" aria-hidden="true"></div>
+
+  <div class="wrap hero__inner">
+    <span class="eyebrow reveal">Hamburgueria Artesanal · Desde 2018</span>
+    <h1 class="hero__title reveal" data-delay="1">
+      O SABOR QUE<br><span class="hl">VALE A AVENTURA</span>
+    </h1>
+    <p class="hero__lead reveal" data-delay="2">
+      Há mais de 8 anos levando hambúrgueres artesanais de qualidade para a sua mesa.
+      Carne fresca na chapa, pão macio tostado na hora e a exclusiva maionese da casa.
+    </p>
+
+    <div class="hero__actions reveal" data-delay="3">
+      <a class="btn btn--primary btn--lg js-pedido" href="#" data-label="hero">
+        <span class="btn__icon">🛵</span> Fazer meu pedido
+      </a>
+      <a class="btn btn--ghost btn--lg" href="#cardapio">Ver o cardápio</a>
+    </div>
+
+    <ul class="hero__stats reveal" data-delay="4">
+      <li><strong>8+</strong><span>anos de história</span></li>
+      <li><strong>30+</strong><span>opções no cardápio</span></li>
+      <li><strong>100%</strong><span>artesanal</span></li>
+    </ul>
+  </div>
+
+  <a href="#promocoes" class="hero__scroll" aria-label="Descer para promoções"><span></span></a>
+</section>
+
+<!-- ================= FAIXA CORRIDA ================= -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    <span>CARNE FRESCA</span><i>★</i><span>PÃO MACIO</span><i>★</i><span>MAIONESE DA CASA</span><i>★</i>
+    <span>BACON CROCANTE</span><i>★</i><span>CHEDDAR CREMOSO</span><i>★</i>
+    <span>CARNE FRESCA</span><i>★</i><span>PÃO MACIO</span><i>★</i><span>MAIONESE DA CASA</span><i>★</i>
+    <span>BACON CROCANTE</span><i>★</i><span>CHEDDAR CREMOSO</span><i>★</i>
+    <span>CARNE FRESCA</span><i>★</i><span>PÃO MACIO</span><i>★</i><span>MAIONESE DA CASA</span><i>★</i>
+    <span>BACON CROCANTE</span><i>★</i><span>CHEDDAR CREMOSO</span><i>★</i>
+    <span>CARNE FRESCA</span><i>★</i><span>PÃO MACIO</span><i>★</i><span>MAIONESE DA CASA</span><i>★</i>
+    <span>BACON CROCANTE</span><i>★</i><span>CHEDDAR CREMOSO</span><i>★</i>
+  </div>
+</div>
+
+<!-- ================= PROMOÇÕES DO DIA ================= -->
+<section class="section section--promo" id="promocoes">
+  <div class="wrap">
+    <header class="sec-head reveal">
+      <span class="eyebrow eyebrow--red">Válido enquanto durar o estoque</span>
+      <h2 class="sec-title">PROMOÇÃO <span class="hl">DO DIA</span></h2>
+      <p class="sec-sub">A oferta de hoje sai direto da chapa. Peça pelo cardápio online antes que acabe.</p>
+    </header>
+
+    <div class="promo">
+      <!-- ===== IMAGEM DA PROMOÇÃO PRINCIPAL =====
+           ARQUIVO: assets/img/promo-destaque.jpg
+           TAMANHO: 1200 x 800 px (3:2) — foto grande e apetitosa
+           PESO IDEAL: até 300KB -->
+      <div class="promo__media reveal">
+        <img src="assets/img/promo-destaque.jpg" alt="Promoção 2 Classic Cheddar" width="1200" height="800" loading="lazy">
+        <span class="promo__flag">OFERTA</span>
+      </div>
+
+      <div class="promo__body reveal" data-delay="2">
+        <h3 class="promo__title">2x CLASSIC CHEDDAR</h3>
+        <p class="promo__text">
+          Dois hambúrgueres Classic Cheddar artesanais, cheddar cremoso, cebola e a maionese
+          exclusiva da casa. Perfeito para dividir — ou não.
+        </p>
+        <ul class="promo__list">
+          <li>Carne artesanal preparada na hora</li>
+          <li>Cheddar cremoso derretido na chapa</li>
+          <li>Pão brioche macio e tostado</li>
+        </ul>
+        <a class="btn btn--primary btn--lg js-pedido" href="#" data-label="promo-principal">
+          <span class="btn__icon">🔥</span> Quero essa promoção
+        </a>
+      </div>
+    </div>
+
+    <!-- Promoções secundárias
+    <div class="promo-mini">
+       IMAGEM: assets/img/promo-2.jpg | TAMANHO: 800 x 600 px (4:3) 
+      <article class="mini reveal">
+        <div class="mini__media"><img src="assets/img/promo-2.jpg" alt="Combo completo" width="800" height="600" loading="lazy"></div>
+        <div class="mini__body">
+          <h4>COMBO COMPLETO</h4>
+          <p>Burger + batata + refri gelado. O pedido mais pedido da casa.</p>
+          <a class="link-arrow js-pedido" href="#" data-label="promo-combo">Ver combos <span>→</span></a>
+        </div>
+      </article>
+
+       IMAGEM: assets/img/promo-3.jpg | TAMANHO: 800 x 600 px (4:3) 
+      <article class="mini reveal" data-delay="1">
+        <div class="mini__media"><img src="assets/img/promo-3.jpg" alt="Porções para compartilhar" width="800" height="600" loading="lazy"></div>
+        <div class="mini__body">
+          <h4>PRA DIVIDIR</h4>
+          <p>Batata com cheddar e bacon, onion rings crocantes e muito mais.</p>
+          <a class="link-arrow js-pedido" href="#" data-label="promo-porcoes">Ver porções <span>→</span></a>
+        </div>
+      </article>
+
+       IMAGEM: assets/img/promo-4.jpg | TAMANHO: 800 x 600 px (4:3) 
+      <article class="mini reveal" data-delay="2">
+        <div class="mini__media"><img src="assets/img/promo-4.jpg" alt="Adventure 4.0" width="800" height="600" loading="lazy"></div>
+        <div class="mini__body">
+          <h4>ADVENTURE 4.0</h4>
+          <p>O gigante da casa: quatro carnes, quatro camadas de cheddar e bacon.</p>
+          <a class="link-arrow js-pedido" href="#" data-label="promo-40">Encarar o 4.0 <span>→</span></a>
+        </div>
+      </article>
+    </div  -->
+  </div>
+</section>
+
+<!-- ================= CARDÁPIO / VITRINE ================= -->
+<section class="section section--menu" id="cardapio">
+  <div class="wrap">
+    <header class="sec-head reveal">
+      <span class="eyebrow">Uma amostra do que fazemos</span>
+      <h2 class="sec-title">NOSSOS <span class="hl">PRODUTOS</span></h2>
+      <p class="sec-sub">Escolha uma categoria e conheça os destaques. Para pedir, é só tocar no produto.</p>
+    </header>
+
+    <div class="tabs reveal" role="tablist">
+      <button class="tab is-active" data-cat="classicos" role="tab">Clássicos</button>
+      <button class="tab" data-cat="especiais" role="tab">Especiais</button>
+      <button class="tab" data-cat="combos" role="tab">Combos</button>
+      <button class="tab" data-cat="porcoes" role="tab">Porções</button>
+      <button class="tab" data-cat="bebidas" role="tab">Bebidas</button>
+    </div>
+
+    <!-- ===================================================================
+         IMAGENS DOS PRODUTOS
+         PASTA: assets/img/produtos/
+         TAMANHO PADRÃO: 800 x 800 px (quadrado 1:1)
+         FORMATO: JPG (ou WEBP) — até 200KB cada
+         Fundo escuro/preto favorece o visual do site.
+         O nome do arquivo já está indicado em cada card abaixo.
+         =================================================================== -->
+    <div class="grid" id="menuGrid">
+
+      <!-- ---------- CLÁSSICOS ---------- -->
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/classic-burguer.jpg" alt="Clássic Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Clássic Burguer</h3>
+          <p>Hambúrguer artesanal, queijo prato, cebola fresca e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="classic-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/bacon-burguer.jpg" alt="Bacon Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Bacon Burguer</h3>
+          <p>Hambúrguer artesanal, queijo prato, bacon crocante, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="bacon-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/salada-burguer.jpg" alt="Salada Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Salada Burguer</h3>
+          <p>Hambúrguer artesanal, queijo prato, alface, tomate, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="salada-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/american-burguer.jpg" alt="Américan Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Américan Burguer</h3>
+          <p>Hambúrguer artesanal, queijo prato, ovo, bacon, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="american-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/doritos-burguer.jpg" alt="Doritos Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Doritos Burguer</h3>
+          <p>Hambúrguer artesanal, cheddar, Doritos, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="doritos-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/stacker-burguer.jpg" alt="Stacker Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Stacker Burguer</h3>
+          <p>Hambúrguer artesanal, cheddar, bacon, rúcula, tomate, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="stacker-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/onions-burguer.jpg" alt="Onions Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Onions Burguer</h3>
+          <p>Artesanal na hora, cheddar, onions crocantes, molho barbecue e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="onions-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/bacon-cheddar.jpg" alt="Bacon Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Bacon Cheddar</h3>
+          <p>Cheddar, bacon crocante, picles, cebola e a combinação de ketchup, mostarda e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="bacon-cheddar">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/especial-cheddar.jpg" alt="Especial Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Especial Cheddar</h3>
+          <p>Hambúrguer suculento, cheddar, bacon crocante, alface, tomate, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="especial-cheddar">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="classicos">
+        <div class="card__media"><img src="assets/img/produtos/chicken-burguer.jpg" alt="Chicken Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Chicken Burguer</h3>
+          <p>Filé de frango empanado, queijo prato derretido, alface, tomate, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="chicken-burguer">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <!-- ---------- ESPECIAIS ---------- -->
+      <article class="card" data-cat="especiais">
+        <div class="card__media"><img src="assets/img/produtos/duplo-bacon.jpg" alt="Duplo Bacon" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Duplo Bacon</h3>
+          <p>Dois hambúrgueres suculentos, cheddar cremoso, bacon crocante, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="duplo-bacon">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="especiais">
+        <div class="card__media"><img src="assets/img/produtos/duplo-cheddar.jpg" alt="Duplo Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Duplo Cheddar</h3>
+          <p>Dois hambúrgueres artesanais, cheddar, bacon, alface, tomate, cebola e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="duplo-cheddar">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card card--wide" data-cat="especiais">
+        <div class="card__media"><img src="assets/img/produtos/triplo-cheddar.jpg" alt="Triplo Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <span class="card__flag">FAVORITO</span>
+          <h3>Triplo Cheddar</h3>
+          <p>Três hambúrgueres artesanais, cheddar, bacon crocante, cebola e maionese da casa. Um burger de respeito.</p>
+          <a class="card__cta js-pedido" href="#" data-label="triplo-cheddar">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card card--wide" data-cat="especiais">
+        <div class="card__media"><img src="assets/img/produtos/adventure-40.jpg" alt="Adventure 4.0" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <span class="card__flag card__flag--red">O GIGANTE</span>
+          <h3>Adventure 4.0</h3>
+          <p>Quatro hambúrgueres artesanais, quatro camadas de cheddar, bacon, cebola, molho barbecue e maionese da casa.</p>
+          <a class="card__cta js-pedido" href="#" data-label="adventure-40">Encarar o 4.0 <span>→</span></a>
+        </div>
+      </article>
+
+      <!-- ---------- COMBOS ---------- -->
+      <article class="card" data-cat="combos">
+        <div class="card__media"><img src="assets/img/produtos/combo-classic.jpg" alt="Combo Classic Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Combo Classic</h3>
+          <p>1 Clássic Burguer + batata + refrigerante lata.</p>
+          <a class="card__cta js-pedido" href="#" data-label="combo-classic">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="combos">
+        <div class="card__media"><img src="assets/img/produtos/combo-bacon.jpg" alt="Combo Bacon Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Combo Bacon</h3>
+          <p>1 Bacon Burguer + batata + refrigerante lata.</p>
+          <a class="card__cta js-pedido" href="#" data-label="combo-bacon">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="combos">
+        <div class="card__media"><img src="assets/img/produtos/combo-doritos.jpg" alt="Combo Doritos Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Combo Doritos</h3>
+          <p>1 Doritos Burguer + batata + refrigerante lata.</p>
+          <a class="card__cta js-pedido" href="#" data-label="combo-doritos">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="combos">
+        <div class="card__media"><img src="assets/img/produtos/combo-stacker.jpg" alt="Combo Stacker Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Combo Stacker</h3>
+          <p>1 Stacker Burguer + batata + refrigerante lata.</p>
+          <a class="card__cta js-pedido" href="#" data-label="combo-stacker">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="combos">
+        <div class="card__media"><img src="assets/img/produtos/combo-chicken.jpg" alt="Combo Chicken Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Combo Chicken</h3>
+          <p>1 Chicken Burguer + batata + refrigerante lata.</p>
+          <a class="card__cta js-pedido" href="#" data-label="combo-chicken">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="combos">
+        <div class="card__media"><img src="assets/img/produtos/combo-40.jpg" alt="Combo 4.0" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <span class="card__flag card__flag--red">TOP</span>
+          <h3>Combo 4.0</h3>
+          <p>1 Adventure 4.0 + batata + refrigerante lata. Para quem chegou com fome de verdade.</p>
+          <a class="card__cta js-pedido" href="#" data-label="combo-40">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <!-- ---------- PORÇÕES ---------- -->
+      <article class="card" data-cat="porcoes">
+        <div class="card__media"><img src="assets/img/produtos/batata.jpg" alt="Batata frita" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Batata Frita</h3>
+          <p>Crocante por fora, macia por dentro. Nas versões pequena e média.</p>
+          <a class="card__cta js-pedido" href="#" data-label="batata">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="porcoes">
+        <div class="card__media"><img src="assets/img/produtos/batata-cheddar-bacon.jpg" alt="Batata com cheddar e bacon" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <span class="card__flag">CAMPEÃ</span>
+          <h3>Batata c/ Cheddar e Bacon</h3>
+          <p>Batata coberta de cheddar cremoso e bacon crocante. Pequena ou média.</p>
+          <a class="card__cta js-pedido" href="#" data-label="batata-cheddar-bacon">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="porcoes">
+        <div class="card__media"><img src="assets/img/produtos/onion-rings.jpg" alt="Onion rings" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Onion Rings</h3>
+          <p>Anéis de cebola empanados e crocantes. Porções de 14 ou 25 unidades.</p>
+          <a class="card__cta js-pedido" href="#" data-label="onion-rings">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="porcoes">
+        <div class="card__media"><img src="assets/img/produtos/maionese-da-casa.jpg" alt="Maionese da casa" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Maionese da Casa</h3>
+          <p>Nosso molho exclusivo, feito aqui. Peça um extra — você vai querer.</p>
+          <a class="card__cta js-pedido" href="#" data-label="maionese">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <!-- ---------- BEBIDAS ---------- -->
+      <article class="card" data-cat="bebidas">
+        <div class="card__media"><img src="assets/img/produtos/refrigerantes.jpg" alt="Refrigerantes" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Refrigerantes</h3>
+          <p>Coca-Cola, Guaraná, Fanta, Itubaina e Tubaína. Lata 350ml ou 2 litros.</p>
+          <a class="card__cta js-pedido" href="#" data-label="refrigerantes">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="bebidas">
+        <div class="card__media"><img src="assets/img/produtos/cervejas.jpg" alt="Cervejas" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Cervejas</h3>
+          <p>Heineken lata, long neck e a versão zero álcool. Sempre geladas.</p>
+          <a class="card__cta js-pedido" href="#" data-label="cervejas">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+
+      <article class="card" data-cat="bebidas">
+        <div class="card__media"><img src="assets/img/produtos/energeticos.jpg" alt="Energéticos" width="800" height="800" loading="lazy"></div>
+        <div class="card__body">
+          <h3>Energéticos</h3>
+          <p>Monster Energy Tradicional e Monster Mango Loco.</p>
+          <a class="card__cta js-pedido" href="#" data-label="energeticos">Pedir agora <span>→</span></a>
+        </div>
+      </article>
+    </div>
+
+    <div class="menu-foot reveal">
+      <p>Este é só um gostinho. O cardápio completo, com preços atualizados, está no nosso pedido online.</p>
+      <a class="btn btn--primary btn--lg js-pedido" href="#" data-label="cardapio-completo">
+        <span class="btn__icon">📋</span> Ver cardápio completo
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= QUEM SOMOS ================= -->
+<section class="section section--about" id="sobre">
+  <div class="wrap about">
+    <div class="about__media reveal">
+      <!-- ===== FOTO PRINCIPAL DO "QUEM SOMOS" =====
+           ARQUIVO: assets/img/sobre-1.jpg
+           TAMANHO: 1000 x 1200 px (retrato 5:6) — chapa, equipe ou fachada
+           PESO IDEAL: até 300KB -->
+      <img src="assets/img/sobre-1.jpg" alt="Preparo artesanal na chapa" width="1000" height="1200" loading="lazy" class="about__img about__img--main">
+
+      <!-- ===== VÍDEO DO ESTABELECIMENTO (sobreposto) =====
+           ARQUIVO: assets/video/estabelecimento.mp4
+           FORMATO: vertical 9:16 (o atual é 720 x 1080 px, 29s)
+           Para trocar o vídeo, substitua o arquivo mantendo o mesmo nome.
+           Está mudo e em loop porque os navegadores só liberam autoplay
+           sem som — o botão ao lado liga/desliga o áudio. -->
+      <div class="about__video">
+        <video
+          class="about__video-el"
+          id="videoSobre"
+          src="assets/video/estabelecimento.mp4"
+          autoplay muted loop playsinline preload="metadata"
+          aria-label="Vídeo do nosso estabelecimento"></video>
+
+        <button class="about__som" id="btnSomVideo" type="button"
+                aria-label="Ativar som do vídeo" aria-pressed="false">
+          <span class="about__som-ico" aria-hidden="true">🔇</span>
+        </button>
+      </div>
+
+      <span class="about__badge"><strong>2018</strong><em>desde</em></span>
+    </div>
+
+    <div class="about__body">
+      <span class="eyebrow reveal">Quem somos</span>
+      <h2 class="sec-title reveal" data-delay="1">FEITO À MÃO,<br><span class="hl">DO JEITO CERTO</span></h2>
+      <p class="reveal" data-delay="2">
+       A Adventure Burger nasceu da paixão por criar hambúrgueres artesanais de verdade.
+       Desde 2018, nossa missão é simples: preparar o hambúrguer que nós mesmos teríamos orgulho de servir à nossa família e aos nossos amigos.<br>
+       <br>Acreditamos que qualidade começa na escolha dos ingredientes e no cuidado com cada etapa do preparo. 
+       Por isso, moldamos nossos hambúrgueres diariamente, tostamos o pão na hora, 
+       utilizamos ingredientes sempre frescos e produzimos nossa maionese exclusiva, 
+       que acabou se tornando uma das marcas registradas da casa, e um dos acompanhamentos favoritos dos nossos clientes.
+      </p>
+      <p class="reveal" data-delay="3">
+        Ao longo desses anos, conquistamos a confiança de centenas de clientes em Itu e região, 
+        sempre mantendo o compromisso de oferecer sabor, qualidade e um atendimento próximo e acolhedor. 
+        Mais do que vender hambúrgueres, buscamos proporcionar uma experiência que reúna boa comida, 
+        momentos especiais e aquele sabor que faz cada visita valer a pena.<br><br>
+        Hoje, a Adventure Burger continua evoluindo, inovando em receitas e aperfeiçoando cada detalhe, 
+        sem abrir mão da essência que nos trouxe até aqui: produzir hambúrgueres artesanais com dedicação, 
+        ingredientes selecionados e muito respeito por cada cliente que escolhe fazer parte da nossa história.<br><br>
+        Cada pedido preparado em nossa cozinha carrega o mesmo cuidado do primeiro dia, 
+        porque acreditamos que um grande hambúrguer não é feito apenas de carne, pão e queijo, 
+        mas da paixão colocada em cada detalhe.
+      </p>
+
+      <ul class="pillars reveal" data-delay="4">
+        <li><span class="pillars__ico">🥩</span><div><strong>Carne fresca</strong><em>Moldada à mão, todo dia</em></div></li>
+        <li><span class="pillars__ico">🔥</span><div><strong>Na chapa, na hora</strong><em>Nada de esquentar pronto</em></div></li>
+        <li><span class="pillars__ico">🥫</span><div><strong>Molho exclusivo</strong><em>Receita da casa desde o início</em></div></li>
+        <li><span class="pillars__ico">🛵</span><div><strong>Entrega rápida</strong><em>Quentinho na sua porta</em></div></li>
+      </ul>
+
+      <a class="btn btn--outline btn--lg reveal js-pedido" data-delay="5" href="#" data-label="sobre">
+        Conhecer nossos produtos
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= AVALIAÇÕES DOS CLIENTES =================
+     Notas e depoimentos reais coletados do Restaurant Guru:
+     https://restaurantguru.com.br/Adventure-Burger-Itu
+     Ao atualizar as notas, mexa em DOIS lugares no bloco de cada nota:
+     o número visível e o style="--nota:__%" que preenche as estrelas
+     (regra: nota ÷ 5 × 100. Ex.: 4.7 ÷ 5 = 94%). -->
+<section class="section section--reviews" id="avaliacoes">
+  <div class="wrap">
+    <header class="sec-head reveal">
+      <span class="eyebrow">Quem prova, volta</span>
+      <h2 class="sec-title">O QUE DIZEM <span class="hl">DE NÓS</span></h2>
+      <p class="sec-sub">Mais de 140 avaliações de clientes reais no Google e no Facebook.</p>
+    </header>
+
+    <!-- ---------- NOTAS EM DESTAQUE ---------- -->
+    <div class="scores">
+      <article class="score reveal">
+        <span class="score__ico" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="28" height="28">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+        </span>
+        <div class="score__body">
+          <span class="score__origem">Google</span>
+          <strong class="score__nota">4,7<em>/5</em></strong>
+          <span class="stars" style="--nota:94%" aria-hidden="true">★★★★★</span>
+          <span class="score__qtd">115 avaliações</span>
+        </div>
+      </article>
+
+      <article class="score reveal" data-delay="1">
+        <span class="score__ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="#1877F2">
+            <path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.88v2.26h3.32l-.53 3.49h-2.79V24C19.61 23.1 24 18.1 24 12.07z"/>
+          </svg>
+        </span>
+        <div class="score__body">
+          <span class="score__origem">Facebook</span>
+          <strong class="score__nota">5,0<em>/5</em></strong>
+          <span class="stars" style="--nota:100%" aria-hidden="true">★★★★★</span>
+          <span class="score__qtd">27 avaliações</span>
+        </div>
+      </article>
+    </div>
+
+    <!-- ---------- DEPOIMENTOS ---------- -->
+    <div class="reviews">
+      <article class="review reveal">
+        <span class="review__aspas" aria-hidden="true">”</span>
+        <span class="stars stars--sm" style="--nota:100%" aria-hidden="true">★★★★★</span>
+        <p class="review__texto">
+          Nossa, melhor lanche da Cidade Nova, sempre com ingredientes fresquinhos.
+        </p>
+        <footer class="review__rodape">
+          <span class="review__avatar" aria-hidden="true">S</span>
+          <span class="review__quem">
+            <strong>Sabrina Stefani</strong>
+            <em>
+              <svg viewBox="0 0 48 48" width="12" height="12" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+              Google
+            </em>
+          </span>
+        </footer>
+      </article>
+
+      <article class="review reveal" data-delay="1">
+        <span class="review__aspas" aria-hidden="true">”</span>
+        <span class="stars stars--sm" style="--nota:100%" aria-hidden="true">★★★★★</span>
+        <p class="review__texto">
+          Achei o lanche super saboroso. O lanche é bem grande e vem uma boa quantidade
+          de batata. Super recomendo!!
+        </p>
+        <footer class="review__rodape">
+          <span class="review__avatar" aria-hidden="true">T</span>
+          <span class="review__quem">
+            <strong>Taylla Gutierres</strong>
+            <em>
+              <svg viewBox="0 0 48 48" width="12" height="12" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+              Google
+            </em>
+          </span>
+        </footer>
+      </article>
+
+      <article class="review reveal" data-delay="2">
+        <span class="review__aspas" aria-hidden="true">”</span>
+        <span class="stars stars--sm" style="--nota:100%" aria-hidden="true">★★★★★</span>
+        <p class="review__texto">
+          Lanche maravilhoso!! Adorei tudo, inclusive o preço. Entrega rápida.
+          Vale muito a pena, super recomendo.
+        </p>
+        <footer class="review__rodape">
+          <span class="review__avatar" aria-hidden="true">A</span>
+          <span class="review__quem">
+            <strong>Ana Maria Zappala</strong>
+            <em>⭐ Restaurant Guru</em>
+          </span>
+        </footer>
+      </article>
+    </div>
+
+    <div class="reviews__foot reveal">
+      <p>Sua opinião ajuda a gente a melhorar sempre.</p>
+      <a class="btn btn--outline btn--lg" href="https://restaurantguru.com.br/Adventure-Burger-Itu"
+         target="_blank" rel="noopener noreferrer">
+        Ver todas as avaliações
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA FAIXA ================= -->
+<section class="cta-band">
+  <!-- IMAGEM DE FUNDO OPCIONAL: assets/img/cta-bg.jpg | TAMANHO: 1920 x 700 px
+       Trocar em: assets/css/style.css → .cta-band { background-image: ... } -->
+  <div class="wrap cta-band__inner reveal">
+    <h2>BATEU A FOME?</h2>
+    <p>Seu pedido sai da chapa direto para você. É rápido, é fácil, e é artesanal.</p>
+    <a class="btn btn--primary btn--xl js-pedido" href="#" data-label="cta-band">
+      <span class="btn__icon">🛵</span> Pedir agora
+    </a>
+  </div>
+</section>
+
+<!-- ================= HORÁRIOS ================= -->
+<section class="section section--hours" id="horarios">
+  <div class="wrap hours">
+    <div class="hours__head reveal">
+      <span class="eyebrow">Funcionamento</span>
+      <h2 class="sec-title">HORÁRIO DE <span class="hl">ATENDIMENTO</span></h2>
+      <p class="sec-sub">Abrimos de quinta a domingo. O status ao lado atualiza sozinho, em tempo real.</p>
+      <div class="hours__status" id="statusCard" data-status="loading">
+        <span class="dot"></span>
+        <div>
+          <strong id="statusTitle">Verificando…</strong>
+          <em id="statusDetail">Um instante</em>
+        </div>
+      </div>
+    </div>
+
+    <ul class="hours__list reveal" data-delay="1" id="hoursList">
+      <li data-day="1"><span>Segunda-feira</span><b class="closed">Fechado</b></li>
+      <li data-day="2"><span>Terça-feira</span><b class="closed">Fechado</b></li>
+      <li data-day="3"><span>Quarta-feira</span><b class="closed">Fechado</b></li>
+      <li data-day="4"><span>Quinta-feira</span><b>18:00 — 22:30</b></li>
+      <li data-day="5"><span>Sexta-feira</span><b>18:00 — 22:30</b></li>
+      <li data-day="6"><span>Sábado</span><b>17:00 — 22:30</b></li>
+      <li data-day="0"><span>Domingo</span><b>18:00 — 22:30</b></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= RODAPÉ ================= -->
+<footer class="footer" id="contato">
+  <div class="wrap footer__grid">
+    <div class="footer__brand">
+      <!-- LOGO NO RODAPÉ — mesmo arquivo do topo -->
+      <img src="assets/img/logo.png" alt="Adventure Burguer" width="512" height="512" loading="lazy">
+      <p>Hamburgueria artesanal desde 2018. Carne fresca, pão macio e a maionese que virou marca registrada.</p>
+    </div>
+
+    <div class="footer__col">
+      <h4>Navegação</h4>
+      <a href="#promocoes">Promoções do dia</a>
+      <a href="#cardapio">Nossos produtos</a>
+      <a href="#sobre">Quem somos</a>
+      <a href="#horarios">Horários</a>
+    </div>
+
+    <div class="footer__col">
+      <h4>Pedidos</h4>
+      <a class="js-pedido" href="#" data-label="footer-pedido">Fazer pedido online</a>
+      <a class="js-pedido" href="#" data-label="footer-acompanhar">Acompanhar pedido</a>
+      <a class="js-pedido" href="#" data-label="footer-taxa">Taxa e tempo de entrega</a>
+    </div>
+
+    <div class="footer__col">
+      <h4>Fale com a gente</h4>
+      <!-- TROCAR: coloque o número real de WhatsApp e o @ do Instagram -->
+      <a href="https://wa.me/5500000000000" target="_blank" rel="noopener">WhatsApp</a>
+      <a href="https://instagram.com/adventureburguer" target="_blank" rel="noopener">Instagram</a>
+      <a class="js-pedido" href="#" data-label="footer-cardapio">Cardápio online</a>
+    </div>
+  </div>
+
+  <div class="wrap footer__bottom">
+    <span>© <span id="year">2026</span> Adventure Burguer — Todos os direitos reservados.</span>
+    <span>Feito com 🔥 e muito cheddar.</span>
+  </div>
+</footer>
+
+<!-- ================= BOTÃO FLUTUANTE ================= -->
+<a class="fab js-pedido" href="#" data-label="fab" aria-label="Fazer pedido online">
+  <span class="fab__ico">🛵</span>
+  <span class="fab__txt">Peça Online</span>
+</a>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

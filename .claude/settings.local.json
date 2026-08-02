@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Home/AppData/Local/Temp/claude/e--pjt-Hamburgueria/4488ccd1-03f1-47cb-8b9e-146be27df641/scratchpad/pwtest/**)",
+      "Bash(npx playwright *)",
+      "Bash(node check.js)"
+    ]
+  }
+}
