@@ -28,6 +28,18 @@ const envSchema = z.object({
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
 
+  /**
+   * Exige segunda etapa para OWNER e MANAGER.
+   *
+   * Existe apenas para nao atrapalhar o desenvolvimento local. Em producao
+   * o valor e FORCADO para true mais abaixo — a conta OWNER controla
+   * faturamento e cadastro, e senha sozinha nao basta para isso.
+   */
+  REQUIRE_ADMIN_2FA: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
   /* Lista separada por virgula; o CORS opera por allowlist, nunca "*". */
   CORS_ORIGINS: z
     .string()
@@ -84,6 +96,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     if (new Set(secrets).size !== secrets.length) {
       throw new Error('JWT_ACCESS_SECRET, JWT_REFRESH_SECRET e ENCRYPTION_KEY devem ser distintos');
     }
+
+    /* Nao e configuravel em producao: sobrescreve qualquer valor do .env. */
+    env.REQUIRE_ADMIN_2FA = true;
   }
 
   return env;

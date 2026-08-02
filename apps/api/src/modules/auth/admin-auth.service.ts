@@ -99,7 +99,7 @@ export class AdminAuthService {
      * Quem ainda nao configurou recebe um token de escopo restrito, que
      * abre apenas as rotas de configuracao do 2FA — nunca o painel.
      */
-    if (requiresTotp(role) && !admin.totpEnabledAt) {
+    if (this.env.REQUIRE_ADMIN_2FA && requiresTotp(role) && !admin.totpEnabledAt) {
       return {
         status: 'TOTP_SETUP_REQUIRED',
         setupToken: this.tokens.createTotpSetupToken({

@@ -67,6 +67,22 @@ describe('loadEnv', () => {
     expect(env.NODE_ENV).toBe('production');
   });
 
+  it('permite desligar o 2FA em desenvolvimento', () => {
+    const env = loadEnv({ ...validEnv, REQUIRE_ADMIN_2FA: 'false' });
+    expect(env.REQUIRE_ADMIN_2FA).toBe(false);
+  });
+
+  it('IGNORA a tentativa de desligar o 2FA em producao', () => {
+    /* A conta OWNER controla faturamento e cadastro: senha sozinha nao basta,
+       e o .env de producao nao pode enfraquecer isso por engano. */
+    const env = loadEnv({ ...validEnv, NODE_ENV: 'production', REQUIRE_ADMIN_2FA: 'false' });
+    expect(env.REQUIRE_ADMIN_2FA).toBe(true);
+  });
+
+  it('exige 2FA por padrao quando a variavel nao existe', () => {
+    expect(loadEnv(validEnv).REQUIRE_ADMIN_2FA).toBe(true);
+  });
+
   it('respeita limites customizados de bloqueio', () => {
     const env = loadEnv({ ...validEnv, LOGIN_MAX_ATTEMPTS: '3', LOGIN_LOCK_MINUTES: '30' });
     expect(env.LOGIN_MAX_ATTEMPTS).toBe(3);
