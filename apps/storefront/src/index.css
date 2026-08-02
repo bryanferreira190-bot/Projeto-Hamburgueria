@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+/**
+ * TOKENS DE DESIGN
+ *
+ * Copiados de apps/landing/assets/css/style.css para a loja parecer a mesma
+ * marca. Se a landing mudar de cor, mude aqui tambem.
+ */
+@theme {
+  --color-preto: #0a0a0a;
+  --color-preto-2: #111111;
+  --color-preto-3: #171717;
+  --color-carvao: #1f1f1f;
+  --color-borda: #2a2a2a;
+  --color-cinza: #a8a8a8;
+  --color-cinza-2: #6f6f6f;
+  --color-amarelo: #ffc21a;
+  --color-amarelo-2: #ffd75e;
+  --color-vermelho: #e01f26;
+  --color-vermelho-2: #ff3b41;
+  --color-verde: #2ecc71;
+
+  --font-display: 'Anton', Impact, 'Arial Black', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-preto text-white antialiased;
+    font-family: var(--font-sans);
+    line-height: 1.65;
+  }
+
+  ::selection {
+    @apply bg-amarelo text-preto;
+  }
+
+  /* Mesma barra de rolagem da landing */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-preto;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-carvao rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-amarelo;
+  }
+}
+
+@layer components {
+  .titulo-display {
+    font-family: var(--font-display);
+    @apply uppercase leading-none tracking-wide;
+  }
+}
+
+@layer utilities {
+  /* Esconde a barra de rolagem das abas de categoria, mantendo o gesto */
+  .sem-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sem-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  @keyframes surgir {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+  .animar-surgir {
+    animation: surgir 0.35s var(--ease-suave) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
