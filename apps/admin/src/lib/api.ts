@@ -1,7 +1,16 @@
 import type { AdminRole, DashboardData } from '@adventure/shared';
 import { useAuth, type AdminProfile } from './auth';
 
-const BASE = '/api/v1';
+/**
+ * Em desenvolvimento, "/api/v1" basta — o proxy do Vite (vite.config.ts)
+ * repassa para localhost:3333, deixando front e API na mesma origem.
+ *
+ * Em producao, painel e API moram em subdominios diferentes
+ * (painel.impactdev.site vs api.impactdev.site), entao precisa da URL
+ * completa. VITE_API_URL e definida no build de producao (Cloudflare
+ * Pages, por exemplo), nunca commitada.
+ */
+const BASE = import.meta.env['VITE_API_URL'] ?? '/api/v1';
 
 export class ApiError extends Error {
   constructor(

@@ -7,11 +7,21 @@ node_modules/
 
 # ============================================================
 #  SEGREDOS — nunca versionar
-#  Apenas os arquivos .env.example entram no Git.
+#  .env.example fica de fora da regra (nao tem valor real).
+#
+#  .env.production do storefront e do admin (apps Vite) tambem fica de
+#  fora, DE PROPOSITO e SO NESSES DOIS: e apenas a URL publica da API,
+#  nunca segredo — vira texto visivel no JS do navegador de qualquer
+#  forma. A excecao e por caminho exato, nao "!.env.production" global,
+#  para nunca liberar sem querer um .env.production real (com segredo)
+#  que venha a existir em apps/api no futuro.
 # ============================================================
 .env
 .env.*
 !.env.example
+!apps/api/.env.production.example
+!apps/storefront/.env.production
+!apps/admin/.env.production
 *.pem
 *.key
 secrets/
