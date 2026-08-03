@@ -109,36 +109,35 @@ function initReveal(){
 
 
 /* ==========================================================================
-   Filtro de categorias do cardápio
+   Carrossel de produtos — setas + estado de início/fim
    ========================================================================== */
-function initTabs(){
-  const tabs  = document.querySelectorAll('.tab');
-  const cards = document.querySelectorAll('#menuGrid .card');
+function initCarrosselProdutos(){
+  const trilho = document.getElementById('carrosselProdutos');
+  const area   = trilho?.closest('.carrossel-produtos');
+  if (!trilho || !area) return;
 
-  const filtrar = (cat) => {
-    let atraso = 0;
-    cards.forEach(card => {
-      const combina = card.dataset.cat === cat;
-      card.classList.toggle('is-hidden', !combina);
-      if (combina){
-        // reinicia a animação de entrada, em cascata
-        card.style.animation = 'none';
-        void card.offsetWidth;
-        card.style.animation = `cardIn .5s var(--ease) ${atraso}s both`;
-        atraso += 0.04;
-      }
-    });
+  const setaPrev = area.querySelector('.carrossel-seta--prev');
+  const setaNext = area.querySelector('.carrossel-seta--next');
+
+  // Rola quase a largura visível a cada clique, mantendo um pedaço do
+  // próximo cartão à mostra — isso deixa claro que dá para continuar.
+  const rolar = (direcao) => {
+    trilho.scrollBy({ left: direcao * trilho.clientWidth * 0.85, behavior: 'smooth' });
   };
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('is-active'));
-      tab.classList.add('is-active');
-      filtrar(tab.dataset.cat);
-    });
-  });
+  setaPrev?.addEventListener('click', () => rolar(-1));
+  setaNext?.addEventListener('click', () => rolar(1));
 
-  filtrar('classicos'); // categoria inicial
+  // Desativa a seta quando não há mais para onde rolar naquele sentido.
+  const atualizarSetas = () => {
+    const fimDoScroll = trilho.scrollWidth - trilho.clientWidth - 1;
+    if (setaPrev) setaPrev.disabled = trilho.scrollLeft <= 0;
+    if (setaNext) setaNext.disabled = trilho.scrollLeft >= fimDoScroll;
+  };
+
+  trilho.addEventListener('scroll', atualizarSetas, { passive: true });
+  window.addEventListener('resize', atualizarSetas);
+  atualizarSetas();
 }
 
 
@@ -273,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
   aplicarLinkPedido();
   initNav();
   initReveal();
-  initTabs();
+  initCarrosselProdutos();
   initFab();
   initVideoSobre();
   initAno();

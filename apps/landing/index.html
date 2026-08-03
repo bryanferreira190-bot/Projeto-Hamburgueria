@@ -192,280 +192,252 @@
     <header class="sec-head reveal">
       <span class="eyebrow">Uma amostra do que fazemos</span>
       <h2 class="sec-title">NOSSOS <span class="hl">PRODUTOS</span></h2>
-      <p class="sec-sub">Escolha uma categoria e conheça os destaques. Para pedir, é só tocar no produto.</p>
+      <p class="sec-sub">Arraste para o lado e conheça os destaques. Para pedir, é só tocar no produto.</p>
     </header>
 
-    <div class="tabs reveal" role="tablist">
-      <button class="tab is-active" data-cat="classicos" role="tab">Clássicos</button>
-      <button class="tab" data-cat="especiais" role="tab">Especiais</button>
-      <button class="tab" data-cat="combos" role="tab">Combos</button>
-      <button class="tab" data-cat="porcoes" role="tab">Porções</button>
-      <button class="tab" data-cat="bebidas" role="tab">Bebidas</button>
-    </div>
+  </div>
 
-    <!-- ===================================================================
-         IMAGENS DOS PRODUTOS
-         PASTA: assets/img/produtos/
-         TAMANHO PADRÃO: 800 x 800 px (quadrado 1:1)
-         FORMATO: JPG (ou WEBP) — até 200KB cada
-         Fundo escuro/preto favorece o visual do site.
-         O nome do arquivo já está indicado em cada card abaixo.
-         =================================================================== -->
-    <div class="grid" id="menuGrid">
+  <!-- ===================================================================
+       CARROSSEL DE PRODUTOS — vai de ponta a ponta da tela de propósito
+       (por isso está FORA do .wrap que limita a largura).
+       PASTA: assets/img/produtos/
+       TAMANHO PADRÃO: 800 x 800 px (quadrado 1:1)
+       FORMATO: JPG (ou WEBP) — até 200KB cada
+       Cada cartão é só foto + nome + botão. O nome do arquivo já indica
+       o produto. Para adicionar um item novo, copie um bloco <article>.
+       =================================================================== -->
+  <div class="carrossel-produtos reveal">
+    <button class="carrossel-seta carrossel-seta--prev" type="button" aria-label="Ver produtos anteriores">‹</button>
 
-      <!-- ---------- CLÁSSICOS ---------- -->
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/classic-burguer.jpg" alt="Clássic Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+    <div class="carrossel-trilho" id="carrosselProdutos">
+
+      <!-- ---------- Clássicos ---------- -->
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/classic-burguer.jpg" alt="Clássic Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Clássic Burguer</h3>
-          <p>Hambúrguer artesanal, queijo prato, cebola fresca e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="classic-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="classic-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/bacon-burguer.jpg" alt="Bacon Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/bacon-burguer.jpg" alt="Bacon Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Bacon Burguer</h3>
-          <p>Hambúrguer artesanal, queijo prato, bacon crocante, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="bacon-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="bacon-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/salada-burguer.jpg" alt="Salada Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/salada-burguer.jpg" alt="Salada Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Salada Burguer</h3>
-          <p>Hambúrguer artesanal, queijo prato, alface, tomate, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="salada-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="salada-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/american-burguer.jpg" alt="Américan Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/american-burguer.jpg" alt="Américan Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Américan Burguer</h3>
-          <p>Hambúrguer artesanal, queijo prato, ovo, bacon, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="american-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="american-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/doritos-burguer.jpg" alt="Doritos Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/doritos-burguer.jpg" alt="Doritos Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Doritos Burguer</h3>
-          <p>Hambúrguer artesanal, cheddar, Doritos, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="doritos-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="doritos-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/stacker-burguer.jpg" alt="Stacker Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/stacker-burguer.jpg" alt="Stacker Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Stacker Burguer</h3>
-          <p>Hambúrguer artesanal, cheddar, bacon, rúcula, tomate, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="stacker-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="stacker-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/onions-burguer.jpg" alt="Onions Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/onions-burguer.jpg" alt="Onions Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Onions Burguer</h3>
-          <p>Artesanal na hora, cheddar, onions crocantes, molho barbecue e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="onions-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="onions-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/bacon-cheddar.jpg" alt="Bacon Cheddar" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/bacon-cheddar.jpg" alt="Bacon Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Bacon Cheddar</h3>
-          <p>Cheddar, bacon crocante, picles, cebola e a combinação de ketchup, mostarda e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="bacon-cheddar">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="bacon-cheddar">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/especial-cheddar.jpg" alt="Especial Cheddar" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/especial-cheddar.jpg" alt="Especial Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Especial Cheddar</h3>
-          <p>Hambúrguer suculento, cheddar, bacon crocante, alface, tomate, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="especial-cheddar">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="especial-cheddar">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="classicos">
-        <div class="card__media"><img src="assets/img/produtos/chicken-burguer.jpg" alt="Chicken Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/chicken-burguer.jpg" alt="Chicken Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Chicken Burguer</h3>
-          <p>Filé de frango empanado, queijo prato derretido, alface, tomate, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="chicken-burguer">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="chicken-burguer">Pedir agora</a>
         </div>
       </article>
 
-      <!-- ---------- ESPECIAIS ---------- -->
-      <article class="card" data-cat="especiais">
-        <div class="card__media"><img src="assets/img/produtos/duplo-bacon.jpg" alt="Duplo Bacon" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <!-- ---------- Especiais ---------- -->
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/duplo-bacon.jpg" alt="Duplo Bacon" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Duplo Bacon</h3>
-          <p>Dois hambúrgueres suculentos, cheddar cremoso, bacon crocante, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="duplo-bacon">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="duplo-bacon">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="especiais">
-        <div class="card__media"><img src="assets/img/produtos/duplo-cheddar.jpg" alt="Duplo Cheddar" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/duplo-cheddar.jpg" alt="Duplo Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Duplo Cheddar</h3>
-          <p>Dois hambúrgueres artesanais, cheddar, bacon, alface, tomate, cebola e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="duplo-cheddar">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="duplo-cheddar">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card card--wide" data-cat="especiais">
-        <div class="card__media"><img src="assets/img/produtos/triplo-cheddar.jpg" alt="Triplo Cheddar" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
-          <span class="card__flag">FAVORITO</span>
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/triplo-cheddar.jpg" alt="Triplo Cheddar" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Triplo Cheddar</h3>
-          <p>Três hambúrgueres artesanais, cheddar, bacon crocante, cebola e maionese da casa. Um burger de respeito.</p>
-          <a class="card__cta js-pedido" href="#" data-label="triplo-cheddar">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="triplo-cheddar">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card card--wide" data-cat="especiais">
-        <div class="card__media"><img src="assets/img/produtos/adventure-40.jpg" alt="Adventure 4.0" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
-          <span class="card__flag card__flag--red">O GIGANTE</span>
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/adventure-40.jpg" alt="Adventure 4.0" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Adventure 4.0</h3>
-          <p>Quatro hambúrgueres artesanais, quatro camadas de cheddar, bacon, cebola, molho barbecue e maionese da casa.</p>
-          <a class="card__cta js-pedido" href="#" data-label="adventure-40">Encarar o 4.0 <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="adventure-40">Pedir agora</a>
         </div>
       </article>
 
-      <!-- ---------- COMBOS ---------- -->
-      <article class="card" data-cat="combos">
-        <div class="card__media"><img src="assets/img/produtos/combo-classic.jpg" alt="Combo Classic Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <!-- ---------- Combos ---------- -->
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/combo-classic.jpg" alt="Combo Classic Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Combo Classic</h3>
-          <p>1 Clássic Burguer + batata + refrigerante lata.</p>
-          <a class="card__cta js-pedido" href="#" data-label="combo-classic">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="combo-classic">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="combos">
-        <div class="card__media"><img src="assets/img/produtos/combo-bacon.jpg" alt="Combo Bacon Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/combo-bacon.jpg" alt="Combo Bacon Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Combo Bacon</h3>
-          <p>1 Bacon Burguer + batata + refrigerante lata.</p>
-          <a class="card__cta js-pedido" href="#" data-label="combo-bacon">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="combo-bacon">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="combos">
-        <div class="card__media"><img src="assets/img/produtos/combo-doritos.jpg" alt="Combo Doritos Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/combo-doritos.jpg" alt="Combo Doritos Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Combo Doritos</h3>
-          <p>1 Doritos Burguer + batata + refrigerante lata.</p>
-          <a class="card__cta js-pedido" href="#" data-label="combo-doritos">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="combo-doritos">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="combos">
-        <div class="card__media"><img src="assets/img/produtos/combo-stacker.jpg" alt="Combo Stacker Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/combo-stacker.jpg" alt="Combo Stacker Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Combo Stacker</h3>
-          <p>1 Stacker Burguer + batata + refrigerante lata.</p>
-          <a class="card__cta js-pedido" href="#" data-label="combo-stacker">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="combo-stacker">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="combos">
-        <div class="card__media"><img src="assets/img/produtos/combo-chicken.jpg" alt="Combo Chicken Burguer" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/combo-chicken.jpg" alt="Combo Chicken Burguer" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Combo Chicken</h3>
-          <p>1 Chicken Burguer + batata + refrigerante lata.</p>
-          <a class="card__cta js-pedido" href="#" data-label="combo-chicken">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="combo-chicken">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="combos">
-        <div class="card__media"><img src="assets/img/produtos/combo-40.jpg" alt="Combo 4.0" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
-          <span class="card__flag card__flag--red">TOP</span>
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/combo-40.jpg" alt="Combo 4.0" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Combo 4.0</h3>
-          <p>1 Adventure 4.0 + batata + refrigerante lata. Para quem chegou com fome de verdade.</p>
-          <a class="card__cta js-pedido" href="#" data-label="combo-40">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="combo-40">Pedir agora</a>
         </div>
       </article>
 
-      <!-- ---------- PORÇÕES ---------- -->
-      <article class="card" data-cat="porcoes">
-        <div class="card__media"><img src="assets/img/produtos/batata.jpg" alt="Batata frita" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <!-- ---------- Porções ---------- -->
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/batata.jpg" alt="Batata frita" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Batata Frita</h3>
-          <p>Crocante por fora, macia por dentro. Nas versões pequena e média.</p>
-          <a class="card__cta js-pedido" href="#" data-label="batata">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="batata">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="porcoes">
-        <div class="card__media"><img src="assets/img/produtos/batata-cheddar-bacon.jpg" alt="Batata com cheddar e bacon" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
-          <span class="card__flag">CAMPEÃ</span>
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/batata-cheddar-bacon.jpg" alt="Batata com cheddar e bacon" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Batata c/ Cheddar e Bacon</h3>
-          <p>Batata coberta de cheddar cremoso e bacon crocante. Pequena ou média.</p>
-          <a class="card__cta js-pedido" href="#" data-label="batata-cheddar-bacon">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="batata-cheddar-bacon">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="porcoes">
-        <div class="card__media"><img src="assets/img/produtos/onion-rings.jpg" alt="Onion rings" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/onion-rings.jpg" alt="Onion rings" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Onion Rings</h3>
-          <p>Anéis de cebola empanados e crocantes. Porções de 14 ou 25 unidades.</p>
-          <a class="card__cta js-pedido" href="#" data-label="onion-rings">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="onion-rings">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="porcoes">
-        <div class="card__media"><img src="assets/img/produtos/maionese-da-casa.jpg" alt="Maionese da casa" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/maionese-da-casa.jpg" alt="Maionese da casa" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Maionese da Casa</h3>
-          <p>Nosso molho exclusivo, feito aqui. Peça um extra — você vai querer.</p>
-          <a class="card__cta js-pedido" href="#" data-label="maionese">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="maionese">Pedir agora</a>
         </div>
       </article>
 
-      <!-- ---------- BEBIDAS ---------- -->
-      <article class="card" data-cat="bebidas">
-        <div class="card__media"><img src="assets/img/produtos/refrigerantes.jpg" alt="Refrigerantes" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <!-- ---------- Bebidas ---------- -->
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/refrigerantes.jpg" alt="Refrigerantes" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Refrigerantes</h3>
-          <p>Coca-Cola, Guaraná, Fanta, Itubaina e Tubaína. Lata 350ml ou 2 litros.</p>
-          <a class="card__cta js-pedido" href="#" data-label="refrigerantes">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="refrigerantes">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="bebidas">
-        <div class="card__media"><img src="assets/img/produtos/cervejas.jpg" alt="Cervejas" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/cervejas.jpg" alt="Cervejas" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Cervejas</h3>
-          <p>Heineken lata, long neck e a versão zero álcool. Sempre geladas.</p>
-          <a class="card__cta js-pedido" href="#" data-label="cervejas">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="cervejas">Pedir agora</a>
         </div>
       </article>
 
-      <article class="card" data-cat="bebidas">
-        <div class="card__media"><img src="assets/img/produtos/energeticos.jpg" alt="Energéticos" width="800" height="800" loading="lazy"></div>
-        <div class="card__body">
+      <article class="produto-card">
+        <div class="produto-card__media"><img src="assets/img/produtos/energeticos.jpg" alt="Energéticos" width="800" height="800" loading="lazy"></div>
+        <div class="produto-card__body">
           <h3>Energéticos</h3>
-          <p>Monster Energy Tradicional e Monster Mango Loco.</p>
-          <a class="card__cta js-pedido" href="#" data-label="energeticos">Pedir agora <span>→</span></a>
+          <a class="produto-card__cta js-pedido" href="#" data-label="energeticos">Pedir agora</a>
         </div>
       </article>
+
     </div>
 
+    <button class="carrossel-seta carrossel-seta--next" type="button" aria-label="Ver mais produtos">›</button>
+  </div>
+
+  <div class="wrap">
     <div class="menu-foot reveal">
       <p>Este é só um gostinho. O cardápio completo, com preços atualizados, está no nosso pedido online.</p>
       <a class="btn btn--primary btn--lg js-pedido" href="#" data-label="cardapio-completo">
