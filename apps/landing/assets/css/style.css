@@ -793,6 +793,16 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
    ========================================================================== */
 @media (max-width:1000px){
   .promo{ grid-template-columns:1fr; gap:34px; }
+  /* Do título ("2x Classic Cheddar") até o botão "Quero essa promoção",
+     tudo centralizado — só quando a promoção empilha em coluna única
+     (mobile/tablet). No desktop, ao lado da foto, continua alinhado
+     à esquerda como antes. */
+  .promo__body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+  }
   .promo-mini{ grid-template-columns:1fr; }
   .about{ grid-template-columns:1fr; gap:56px; }
   .about__media{ max-width:520px; margin-inline:auto; }
