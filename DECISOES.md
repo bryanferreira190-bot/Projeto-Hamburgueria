@@ -5,27 +5,43 @@ Formato: mais recente no topo.
 
 ---
 
-## 2026-08-04 — `railway.json` não roda `npm ci` no `buildCommand`
+## 2026-08-04 — `nixpacks.toml` desliga o cache de `node_modules/.cache`
 
 **Sintoma.** Build no Railway falhava sempre no mesmo passo, com
 `npm error EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'`
 (exit code 240).
 
-**Causa.** O Nixpacks já roda `npm ci` sozinho na fase de instalação, antes
-de qualquer `buildCommand` customizado (ele detecta o `package-lock.json` na
-raiz e infere isso automaticamente). Esse `npm ci` automático usa um cache
-mount do Docker em `node_modules/.cache`. O `railway.json` também chamava
-`npm ci &&` no início do `buildCommand` — ou seja, `npm ci` rodava duas
-vezes. Na segunda vez, ele tenta limpar `node_modules/.cache`, que ainda
-está montado (busy) pela primeira execução, e falha.
+**Primeira hipótese, incompleta.** Achamos que era `npm ci` duplicado —
+o `railway.json` chamava `npm ci &&` no início do `buildCommand`, e o
+Nixpacks já roda `npm ci` sozinho na fase de instalação (detecta o
+`package-lock.json` automaticamente). Tirar o `npm ci` redundante do
+`buildCommand` era correto (evita rodar a instalação duas vezes à toa),
+mas não resolveu: o erro persistiu identico mesmo com um único `npm ci`.
 
-**Decisão.** `buildCommand` só roda os passos de build
-(`npm run build --workspace=...`), sem `npm ci` — a instalação fica
-inteiramente a cargo da fase automática do Nixpacks.
+**Causa real.** `node_modules/.cache` é um diretório cacheado por padrão
+na **fase de build** do Nixpacks (não na de instalação). Como a fase de
+instalação e a de build acabam compiladas numa única camada Docker (um só
+`RUN npm ci && npm run build ...`), o cache mount da fase de build já está
+montado quando o `npm ci` da fase de instalação tenta limpar esse mesmo
+diretório — e falha com `EBUSY` porque o diretório está ocupado pelo mount.
 
-**Quando revisar.** Se o build passar a exigir uma etapa de instalação
-diferente do `npm ci` padrão (ex: flags extras), usar `nixpacks.toml` com
-`phases.install.cmds`, não reintroduzir `npm ci` no `buildCommand`.
+**Decisão.** `nixpacks.toml` na raiz, desligando só esse cache específico:
+
+```toml
+[phases.build]
+cacheDirectories = []
+```
+
+Não usamos a variável de ambiente `NO_CACHE=1` (também documentada pelo
+Railway para esse erro) porque ela desliga *todo* o cache do build
+(incluindo pacotes Nix e registry do npm), deixando cada build bem mais
+lento. Desligar só `node_modules/.cache` resolve o conflito e mantém os
+outros caches.
+
+**Quando revisar.** Se o Nixpacks mudar o comportamento de merge de fases,
+ou se algum passo do build passar a depender de persistir algo em
+`node_modules/.cache` entre builds (nenhum dos scripts atuais depende
+disso).
 
 ---
 

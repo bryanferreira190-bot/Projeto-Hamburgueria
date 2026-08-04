@@ -1,0 +1,8 @@
+# O Nixpacks cacheia "node_modules/.cache" por padrao na fase de build.
+# Como a fase de instalacao (npm ci) e a de build acabam viradas numa unica
+# camada Docker, o npm ci tenta limpar esse diretorio bem na hora em que ele
+# esta montado como cache do Docker, e falha com EBUSY. Desligar esse cache
+# especifico resolve, sem desligar os outros caches (registry do npm etc).
+# Ver DECISOES.md.
+[phases.build]
+cacheDirectories = []
