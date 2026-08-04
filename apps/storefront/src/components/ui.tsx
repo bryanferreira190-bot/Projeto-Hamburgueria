@@ -4,11 +4,7 @@ import type {
   ReactNode,
   TextareaHTMLAttributes,
 } from 'react';
-
-/** Junta classes ignorando valores falsos. */
-export function cx(...classes: (string | false | null | undefined)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
+import { cx } from '../lib/cx';
 
 /* ---------------- Botao ---------------- */
 
@@ -76,8 +72,11 @@ export function Button({
 
 interface FieldProps {
   label: string;
+  /* O "| undefined" explicito e necessario por causa do
+     exactOptionalPropertyTypes: sem ele, passar uma expressao que pode
+     resultar em undefined (um ternario, por exemplo) vira erro de tipo. */
   error?: string | undefined;
-  hint?: string;
+  hint?: string | undefined;
   required?: boolean;
   children: ReactNode;
 }

@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { api, type Product } from '../../lib/api';
+import { resolveImageUrl } from '../../lib/imageUrl';
 import { useCart } from '../../stores/cart';
-import { Button, EmptyState, Spinner, cx } from '../../components/ui';
+import { Button, EmptyState, Spinner } from '../../components/ui';
+import { cx } from '../../lib/cx';
 
 export function MenuPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -184,7 +186,7 @@ function ProductCard({ product }: { product: Product }) {
       <div className="relative aspect-square overflow-hidden bg-carvao">
         {product.imageUrl ? (
           <img
-            src={`/landing${product.imageUrl}`}
+            src={resolveImageUrl(product.imageUrl)!}
             alt={product.name}
             loading="lazy"
             className="size-full object-cover transition-transform duration-700 hover:scale-108"

@@ -190,7 +190,24 @@ model Product {
   name        String  @db.VarChar(160)
   slug        String  @db.VarChar(160)
   description String? @db.VarChar(600)
+
+  /// Endereco publico da foto. Aponta para /catalog/products/:id/image
+  /// quando a foto foi enviada pelo painel, ou para um arquivo estatico
+  /// quando veio do seed inicial.
   imageUrl    String? @db.VarChar(500)
+
+  /// FOTO GUARDADA NO PROPRIO BANCO
+  ///
+  /// Escolha consciente para esta escala: ~30 produtos, foto trocada
+  /// raramente, limite de 2 MB por arquivo. Evita depender de servico
+  /// externo e funciona em qualquer hospedagem, sem credencial extra.
+  /// O acesso passa pelo ImageStorage, entao migrar para S3/R2 depois
+  /// nao espalha mudanca pelo resto do codigo. Ver DECISOES.md.
+  imageData     Bytes?
+  imageMimeType String? @db.VarChar(40)
+  /// Muda a cada upload e entra na URL, para o navegador nao continuar
+  /// exibindo a foto antiga depois da troca.
+  imageVersion  Int     @default(0)
 
   priceCents Int
   /// Preco "de", apenas para exibir promocao. Nao entra em nenhum calculo.

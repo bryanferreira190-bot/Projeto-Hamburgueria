@@ -9,7 +9,8 @@ import {
   type PaymentMethod,
 } from '@adventure/shared';
 import { ApiError, api } from '../../lib/api';
-import { Badge, Button, EmptyState, Field, Input, Spinner, cx } from '../../components/ui';
+import { Badge, Button, EmptyState, Field, Input, Spinner } from '../../components/ui';
+import { cx } from '../../lib/cx';
 
 /** Etapas visiveis ao cliente, na ordem em que acontecem. */
 const STEPS: { status: OrderStatus; icon: string }[] = [

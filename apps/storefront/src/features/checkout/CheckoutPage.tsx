@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router';
 import { PAYMENT_METHOD_LABELS, formatBRL, type PaymentMethod } from '@adventure/shared';
 import { ApiError, api } from '../../lib/api';
 import { useCart } from '../../stores/cart';
-import { Button, EmptyState, Field, Input, Textarea, cx } from '../../components/ui';
+import { Button, EmptyState, Field, Input, Textarea } from '../../components/ui';
+import { cx } from '../../lib/cx';
 
 type OrderType = 'DELIVERY' | 'PICKUP';
 

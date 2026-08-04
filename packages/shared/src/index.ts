@@ -15,3 +15,4 @@ export * from './schemas/customer.js';
 export * from './schemas/order.js';
 export * from './schemas/admin.js';
 export * from './schemas/reports.js';
+export * from './schemas/product.js';

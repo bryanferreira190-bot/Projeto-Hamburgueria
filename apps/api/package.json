@@ -45,6 +45,7 @@
     "@nestjs/testing": "^11.1.28",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.10.2",
     "@types/qrcode": "^1.5.6",
     "@types/supertest": "^7.2.1",

@@ -5,6 +5,38 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-04 — Fotos de produto guardadas no próprio Postgres
+
+O painel de cardápio (dentro da loja, em `/admin`) permite trocar a foto de
+qualquer produto. Isso exigiu decidir onde o arquivo enviado passa a morar.
+
+**Decisão.** Guardar os bytes na própria tabela `product`
+(`imageData` + `imageMimeType`), servindo por
+`GET /catalog/products/:id/image`.
+
+**Por que não S3 / Cloudflare R2 agora.** É a resposta "certa" em escala, mas
+exigiria criar conta, gerar credenciais e configurá-las antes de qualquer
+linha funcionar. Para ~30 produtos, com foto trocada raramente e limite de
+2 MB por arquivo, o custo dessa dependência não se paga hoje.
+
+**Por que é seguro nesta escala.** 30 produtos × 2 MB no pior caso = 60 MB,
+contra 512 MB do plano gratuito do Neon. Na prática as fotos ficam bem abaixo
+disso.
+
+**O que protege o futuro.** Todo acesso passa pelo `ImageStorageService`.
+Migrar para R2 significa reescrever **apenas essa classe** — controller,
+frontend e schema de URL pública continuam iguais.
+
+**Cache.** A URL carrega a versão da foto (`?v=N`, incrementada a cada
+upload), então o `Cache-Control: immutable` de 1 ano é seguro: trocar a
+imagem gera URL nova e nenhum navegador fica preso na antiga.
+
+**Quando revisar.** Se o cardápio passar de ~200 produtos, se as fotos
+começarem a ser trocadas com frequência, ou se o banco se aproximar do
+limite do plano.
+
+---
+
 ## 2026-08-02 — Relatórios consultam `order` direto, não as tabelas de rollup
 
 O schema tem `daily_sales_rollup` e `product_sales_rollup`, criadas justamente

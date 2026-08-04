@@ -41,7 +41,9 @@ async function main() {
   console.log('  Sera removido:');
   console.log(`    Pedidos           : ${orders}`);
   console.log(`    Clientes          : ${customers}`);
-  console.log(`    Contas de teste   : ${testAdmins.map((a) => a.email).join(', ') || '(nenhuma)'}`);
+  console.log(
+    `    Contas de teste   : ${testAdmins.map((a) => a.email).join(', ') || '(nenhuma)'}`,
+  );
   console.log('');
   console.log('  NAO sera tocado: produtos, categorias, zonas de entrega, cupons,');
   console.log('  demais contas de administrador.');

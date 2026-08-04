@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { api } from '../lib/api';
 import { useCart } from '../stores/cart';
-import { Badge, cx } from './ui';
+import { Badge } from './ui';
+import { cx } from '../lib/cx';
 
 export function Header() {
   const totalItems = useCart((state) => state.totalItems());

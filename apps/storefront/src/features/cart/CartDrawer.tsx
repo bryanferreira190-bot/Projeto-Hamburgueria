@@ -2,7 +2,9 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { formatBRL, multiplyCents } from '@adventure/shared';
 import { useCart } from '../../stores/cart';
-import { Button, EmptyState, cx } from '../../components/ui';
+import { resolveImageUrl } from '../../lib/imageUrl';
+import { Button, EmptyState } from '../../components/ui';
+import { cx } from '../../lib/cx';
 
 export function CartDrawer() {
   const { items, isOpen, close, remove, setQuantity, clear, subtotalCents } = useCart();
@@ -84,7 +86,7 @@ export function CartDrawer() {
                     <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-carvao">
                       {item.imageUrl ? (
                         <img
-                          src={`/landing${item.imageUrl}`}
+                          src={resolveImageUrl(item.imageUrl)!}
                           alt=""
                           className="size-full object-cover"
                         />
