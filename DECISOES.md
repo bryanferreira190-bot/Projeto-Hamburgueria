@@ -5,6 +5,30 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-04 — `railway.json` não roda `npm ci` no `buildCommand`
+
+**Sintoma.** Build no Railway falhava sempre no mesmo passo, com
+`npm error EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'`
+(exit code 240).
+
+**Causa.** O Nixpacks já roda `npm ci` sozinho na fase de instalação, antes
+de qualquer `buildCommand` customizado (ele detecta o `package-lock.json` na
+raiz e infere isso automaticamente). Esse `npm ci` automático usa um cache
+mount do Docker em `node_modules/.cache`. O `railway.json` também chamava
+`npm ci &&` no início do `buildCommand` — ou seja, `npm ci` rodava duas
+vezes. Na segunda vez, ele tenta limpar `node_modules/.cache`, que ainda
+está montado (busy) pela primeira execução, e falha.
+
+**Decisão.** `buildCommand` só roda os passos de build
+(`npm run build --workspace=...`), sem `npm ci` — a instalação fica
+inteiramente a cargo da fase automática do Nixpacks.
+
+**Quando revisar.** Se o build passar a exigir uma etapa de instalação
+diferente do `npm ci` padrão (ex: flags extras), usar `nixpacks.toml` com
+`phases.install.cmds`, não reintroduzir `npm ci` no `buildCommand`.
+
+---
+
 ## 2026-08-04 — Fotos de produto guardadas no próprio Postgres
 
 O painel de cardápio (dentro da loja, em `/admin`) permite trocar a foto de
