@@ -51,12 +51,14 @@ api.impactdev.site        → API
    **com valor real**:
    - `DATABASE_URL` → a mesma connection string do Neon que já está em uso
    - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY` → gere os
-     três rodando **no seu terminal** (não aqui no chat):
+     três de uma vez rodando **no seu terminal** (não aqui no chat):
      ```
-     node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+     node -e "const c=require('crypto');const g=()=>c.randomBytes(48).toString('base64url');for(const k of ['JWT_ACCESS_SECRET','JWT_REFRESH_SECRET','ENCRYPTION_KEY'])console.log(k+'='+g())"
      ```
-     Rode três vezes, um valor para cada variável — precisam ser diferentes
-     entre si.
+     Saem as três linhas já no formato `CHAVE=valor`, prontas para colar de
+     uma vez no **Raw Editor** do Railway (Variables → ⋮ → Raw Editor).
+     Cada valor tem 64 caracteres, bem acima do mínimo de 32, e os três
+     saem diferentes entre si — que é o que o `loadEnv()` exige.
    - `CORS_ORIGINS=https://impactdev.site,https://loja.impactdev.site,https://painel.impactdev.site`
    - Resto: copie os valores fixos do arquivo de exemplo
 5. Em **Settings → Networking**, clique **Generate Domain** temporariamente
