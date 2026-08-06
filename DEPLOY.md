@@ -91,7 +91,7 @@ Repita estes passos **três vezes**, uma por app. É a mesma tela, muda só o
 |---|---|---|---|
 | **Nome do projeto** | `adventure-landing` | `adventure-loja` | `adventure-painel` |
 | **Root directory** | `apps/landing` | `apps/storefront` | `apps/admin` |
-| **Build command** | *(deixe em branco)* | `cd ../.. && npm ci && npm run build --workspace=@adventure/shared && npm run build --workspace=@adventure/storefront` | `cd ../.. && npm ci && npm run build --workspace=@adventure/shared && npm run build --workspace=@adventure/admin` |
+| **Build command** | *(deixe em branco)* | `cd ../.. && npm ci --include=dev && npm run build --workspace=@adventure/shared && npm run build --workspace=@adventure/storefront` | `cd ../.. && npm ci --include=dev && npm run build --workspace=@adventure/shared && npm run build --workspace=@adventure/admin` |
 | **Build output directory** | `.` | `dist` | `dist` |
 
 > A landing não precisa de build (é HTML puro) — só aponte a raiz e o
@@ -100,6 +100,14 @@ Repita estes passos **três vezes**, uma por app. É a mesma tela, muda só o
 > Storefront e admin já têm `.env.production` versionado com a URL da API,
 > então **não precisa configurar nenhuma variável de ambiente** nesses dois
 > projetos.
+>
+> `--include=dev` é necessário porque o Cloudflare Pages roda o build com
+> `NODE_ENV=production`, o que faz o `npm ci` pular as `devDependencies` —
+> e `vite`/`typescript` são devDependencies aqui. Mesma causa raiz do
+> `nest: not found` que tivemos no Railway (ver `DECISOES.md`), mas a
+> correção é mais simples: como o comando de build inteiro é nosso, dá
+> para resolver direto nele, sem depender de nenhuma configuração da
+> plataforma.
 
 2. Depois do primeiro deploy de cada um, vá em **Custom domains** e
    adicione:
