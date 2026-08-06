@@ -26,22 +26,42 @@ limpa do repositório: 293 pacotes contra 759 do install completo, e os
 mesmos "62 packages looking for funding" que o log do Railway mostrava.
 Em `node_modules/.bin` havia `tsc` e `prisma`, mas não `nest`.
 
-**Decisão.** `nixpacks.toml` sobrescreve o comando da fase de instalação:
+**Primeira tentativa, que não funcionou.** `nixpacks.toml` com
+`[phases.install] cmds = ['npm ci --include=dev']`. Preferimos isso a
+mexer no painel porque ficaria versionado, mas o Railway simplesmente
+**ignorou** essa configuração — o próximo build falhou do mesmo jeito, e
+a própria caixa de resumo do Nixpacks no log continuou mostrando
+`install │ npm ci`, sem o `--include=dev`. Não foi possível confirmar a
+causa exata (suspeita: o `build.buildCommand` já definido no
+`railway.json` faz o Railway gerar o plano de build por conta própria e
+esse plano não é mesclado com um `nixpacks.toml` solto), mas o fato
+observado é que o override de fase não pegou.
 
-```toml
-[phases.install]
-cmds = ['npm ci --include=dev']
-```
+**Também descartado.** Mover `@nestjs/cli` para `dependencies` no
+`apps/api/package.json`. Resolvia o `nest: not found`, mas só esse — o
+`nest build` roda o TypeScript por baixo, e sem as outras
+`devDependencies` (`typescript`, `@types/express`, etc.) o build quebra
+de novo, agora com erro de tipos. Teria que mover a lista inteira de
+devDependencies de build, o que não faz sentido semântico nenhum.
 
-**Por que não `NPM_CONFIG_PRODUCTION=false` no painel.** Funcionaria, mas
-seria mais uma configuração invisível, presa a um painel, que ninguém
-descobre lendo o repositório — o mesmo motivo que levou os
-`.env.production` do storefront e do admin a serem versionados.
+**Decisão final.** Variável de ambiente `NPM_CONFIG_INCLUDE=dev`,
+cadastrada no Railway (**Variables**, junto dos segredos — não é segredo,
+mas é *build-time*, então precisa estar lá, não só no `.env.production`).
+É uma env var padrão do próprio `npm` (equivalente a `npm config set
+include dev`), lida diretamente pelo `npm ci` independente de qualquer
+particularidade do Nixpacks/Railway — por isso funciona onde o
+`nixpacks.toml` não funcionou. Confirmado localmente: com
+`NODE_ENV=production` e `NPM_CONFIG_INCLUDE=dev` juntos, `npm ci` puro
+instala os 759 pacotes e o build completo passa.
 
 **Custo aceito.** A imagem final carrega as devDependencies e fica maior.
 Numa API deste porte isso não pesa, e evita a complexidade de um build
-multi-estágio. Além disso o `startCommand` roda `npx prisma migrate
-deploy`, que fica mais previsível com o CLI já presente na imagem.
+multi-estágio.
+
+**Quando revisar.** Se o Railway passar a respeitar `nixpacks.toml`
+mesmo com `build.buildCommand` definido, dá para voltar a versionar isso
+em vez de depender do painel — vale testar de novo numa próxima mudança
+de infra.
 
 ---
 

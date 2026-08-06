@@ -1,17 +1,8 @@
-# Ver DECISOES.md para o raciocinio completo das duas configuracoes abaixo.
-
-# NODE_ENV=production e uma variavel do servico no Railway, e o Railway a
-# expoe tambem em tempo de BUILD. Nesse modo o "npm ci" pula as
-# devDependencies — e o @nestjs/cli (o binario "nest") so existe ali,
-# entao o build quebrava com "nest: not found". O --include=dev instala
-# tudo independentemente do NODE_ENV.
-[phases.install]
-cmds = ['npm ci --include=dev']
-
 # O Nixpacks cacheia "node_modules/.cache" por padrao na fase de build.
 # Como a fase de instalacao (npm ci) e a de build acabam viradas numa unica
 # camada Docker, o npm ci tenta limpar esse diretorio bem na hora em que ele
 # esta montado como cache do Docker, e falha com EBUSY. Desligar esse cache
 # especifico resolve, sem desligar os outros caches (registry do npm etc).
+# Ver DECISOES.md.
 [phases.build]
 cacheDirectories = []
