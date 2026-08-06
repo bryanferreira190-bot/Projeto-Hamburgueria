@@ -5,6 +5,46 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-06 — Build no Railway instala devDependencies explicitamente
+
+**Sintoma.** Depois de resolver o `EBUSY`, o build avançou e quebrou em
+`sh: 1: nest: not found` (exit code 127), na hora de compilar a API.
+
+**Causa.** `NODE_ENV=production` é uma das variáveis do serviço no Railway,
+e o Railway expõe as variáveis do serviço **também em tempo de build**.
+Nesse modo o `npm ci` omite as `devDependencies`, e o `@nestjs/cli` — que
+fornece o binário `nest` — só existe ali.
+
+**Por que despistou.** `tsc` e `prisma` *sobreviveram* à instalação
+enxuta, porque chegam como dependências transitivas de pacotes de
+produção. Então o `@adventure/shared` compilou e o `prisma generate`
+rodou normalmente; só o `nest` faltou. Parecia problema específico do
+NestJS, não da instalação inteira.
+
+**Como foi confirmado.** Rodando `NODE_ENV=production npm ci` numa cópia
+limpa do repositório: 293 pacotes contra 759 do install completo, e os
+mesmos "62 packages looking for funding" que o log do Railway mostrava.
+Em `node_modules/.bin` havia `tsc` e `prisma`, mas não `nest`.
+
+**Decisão.** `nixpacks.toml` sobrescreve o comando da fase de instalação:
+
+```toml
+[phases.install]
+cmds = ['npm ci --include=dev']
+```
+
+**Por que não `NPM_CONFIG_PRODUCTION=false` no painel.** Funcionaria, mas
+seria mais uma configuração invisível, presa a um painel, que ninguém
+descobre lendo o repositório — o mesmo motivo que levou os
+`.env.production` do storefront e do admin a serem versionados.
+
+**Custo aceito.** A imagem final carrega as devDependencies e fica maior.
+Numa API deste porte isso não pesa, e evita a complexidade de um build
+multi-estágio. Além disso o `startCommand` roda `npx prisma migrate
+deploy`, que fica mais previsível com o CLI já presente na imagem.
+
+---
+
 ## 2026-08-04 — `nixpacks.toml` desliga o cache de `node_modules/.cache`
 
 **Sintoma.** Build no Railway falhava sempre no mesmo passo, com
