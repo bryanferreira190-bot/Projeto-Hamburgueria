@@ -152,4 +152,7 @@ export const adminApi = {
       formData,
     });
   },
+
+  removerFoto: (id: string) =>
+    requisitar<{ imageUrl: null }>(`/admin/products/${id}/image`, { method: 'DELETE' }),
 };

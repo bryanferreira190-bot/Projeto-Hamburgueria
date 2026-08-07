@@ -60,6 +60,8 @@ api.impactdev.site        → API
      Cada valor tem 64 caracteres, bem acima do mínimo de 32, e os três
      saem diferentes entre si — que é o que o `loadEnv()` exige.
    - `CORS_ORIGINS=https://impactdev.site,https://loja.impactdev.site,https://painel.impactdev.site`
+   - `PUBLIC_API_URL=https://api.impactdev.site` → prefixo das URLs de foto
+     de produto (sem barra no fim)
    - Resto: copie os valores fixos do arquivo de exemplo
 5. Em **Settings → Networking**, clique **Generate Domain** temporariamente
    para testar (ex.: `algo.up.railway.app`) — depois trocamos pelo domínio
@@ -120,7 +122,41 @@ Repita estes passos **três vezes**, uma por app. É a mesma tela, muda só o
 
 ---
 
-## 4. Depois de tudo no ar
+## 4. Levar as fotos dos produtos para o banco (uma vez só)
+
+As fotos do cardápio nasceram como arquivos da landing
+(`/assets/img/produtos/*.jpg`). Depois deste passo elas passam a morar no
+banco, e a API vira a única dona delas — que é o que permite trocar a foto
+pelo painel sem precisar de novo deploy da landing.
+
+> **A ordem importa.** Rode isto só **depois** que o deploy do passo 2
+> estiver no ar com a versão nova da API. A versão antiga não sabe montar
+> a URL a partir do banco, então rodar antes faria as fotos sumirem da
+> loja até o deploy terminar.
+
+No seu computador, com o `apps/api/.env` apontando para o mesmo banco de
+produção (é o caso hoje):
+
+```
+cd apps/api
+npm run db:importar-fotos
+```
+
+Ele avisa quantas fotos importou. É seguro rodar de novo: produto que já
+tem foto no banco é pulado, então nada enviado pelo painel é sobrescrito.
+
+Depois confira que o cardápio já devolve o endereço da API:
+
+```
+curl -s https://api.impactdev.site/api/v1/catalog/menu
+```
+
+O `imageUrl` de cada produto deve começar com
+`https://api.impactdev.site/api/v1/catalog/products/`.
+
+---
+
+## 5. Depois de tudo no ar
 
 1. Abra `https://impactdev.site` — confira que a landing carrega
 2. Abra `https://loja.impactdev.site` — monte um pedido de teste

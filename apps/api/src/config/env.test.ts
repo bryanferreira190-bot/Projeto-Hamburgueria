@@ -88,4 +88,22 @@ describe('loadEnv', () => {
     expect(env.LOGIN_MAX_ATTEMPTS).toBe(3);
     expect(env.LOGIN_LOCK_MINUTES).toBe(30);
   });
+
+  it('deixa PUBLIC_API_URL vazia quando nao informada', () => {
+    /* Vazia significa "devolva caminho relativo", que e o que serve o
+       desenvolvimento, onde o proxy do Vite une front e API. */
+    expect(loadEnv(validEnv).PUBLIC_API_URL).toBe('');
+  });
+
+  it('remove a barra final de PUBLIC_API_URL', () => {
+    /* Sem isso a concatenacao com o caminho geraria "site//api/v1/...". */
+    const env = loadEnv({ ...validEnv, PUBLIC_API_URL: 'https://api.impactdev.site/' });
+    expect(env.PUBLIC_API_URL).toBe('https://api.impactdev.site');
+  });
+
+  it('recusa PUBLIC_API_URL que nao seja uma URL completa', () => {
+    expect(() => loadEnv({ ...validEnv, PUBLIC_API_URL: 'api.impactdev.site' })).toThrow(
+      /PUBLIC_API_URL/,
+    );
+  });
 });

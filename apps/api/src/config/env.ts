@@ -17,6 +17,24 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url('DATABASE_URL deve ser uma URL de conexao valida'),
   REDIS_URL: z.string().url().optional().or(z.literal('')),
 
+  /**
+   * Endereco publico da API (ex.: https://api.impactdev.site).
+   *
+   * Serve para montar a URL absoluta das fotos de produto. Em producao a
+   * loja e a API moram em dominios diferentes, entao devolver so o caminho
+   * ("/api/v1/...") obrigaria cada frontend a adivinhar o prefixo.
+   *
+   * Vazio em desenvolvimento de proposito: ali o proxy do Vite coloca
+   * front e API na mesma origem, e o caminho relativo funciona melhor.
+   */
+  PUBLIC_API_URL: z
+    .string()
+    .url('PUBLIC_API_URL deve ser uma URL completa, como https://api.impactdev.site')
+    .or(z.literal(''))
+    .default('')
+    /* Barra no fim geraria "//api/v1" na concatenacao. */
+    .transform((value) => value.replace(/\/+$/, '')),
+
   JWT_ACCESS_SECRET: z.string().min(MIN_SECRET_LENGTH, secretMessage('JWT_ACCESS_SECRET')),
   JWT_REFRESH_SECRET: z.string().min(MIN_SECRET_LENGTH, secretMessage('JWT_REFRESH_SECRET')),
   JWT_ACCESS_TTL: z.string().default('15m'),

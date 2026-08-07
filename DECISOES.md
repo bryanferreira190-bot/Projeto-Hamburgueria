@@ -5,6 +5,54 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-07 — A URL da foto é calculada na leitura, não guardada em coluna
+
+**O que mudou.** O `imageUrl` que o cardápio devolve deixou de ser um campo
+lido do banco e passou a ser montado a cada resposta, pelo
+`ImageStorageService.resolveUrl()`. Com `PUBLIC_API_URL` configurada, ele
+sai absoluto:
+`https://api.impactdev.site/api/v1/catalog/products/{id}/image?v={versão}`.
+
+**Por que não gravar a URL pronta.** Ela carrega o domínio da API, e
+domínio muda — troca de provedor, ambiente de homologação, o próprio
+`impactdev.site` um dia. Uma coluna com o domínio dentro fica errada em
+todo ambiente que não seja aquele onde a linha foi escrita, e conserta-se
+só com `UPDATE` em massa. O banco guarda a **origem** da foto (bytes ali
+mesmo, ou caminho estático do seed); o endereço é decidido na leitura.
+
+**Como a origem é decidida.** `imageMimeType` preenchido significa foto no
+banco — vence sempre. Senão, cai no `imageUrl` do seed. Senão, `null`, e o
+cartão do cardápio mostra o ícone padrão. Essa ordem existe por um motivo
+concreto: rodar o seed de novo reescreve `imageUrl` com o caminho
+estático, e sem a precedência do `imageMimeType` isso apagaria a foto que
+alguém tinha acabado de enviar pelo painel.
+
+**Por que absoluta, e não relativa.** A loja até resolvia o caminho
+relativo sozinha, porque conhece `VITE_API_URL`. Mas isso é uma regra que
+só existe dentro do storefront: qualquer outro consumidor — WhatsApp,
+Mercado Pago, um app depois — receberia uma URL que não abre. A API passa
+a devolver algo que funciona colado em qualquer lugar.
+
+**`PUBLIC_API_URL` é opcional de propósito.** Vazia, a API volta a devolver
+caminho relativo, que é o certo em desenvolvimento (o proxy do Vite põe
+front e API na mesma origem) e evita que o deploy quebre por falta de uma
+variável nova — depois do trabalho que deu subir esse serviço, hard-fail
+em variável nova não valia o risco.
+
+**Bônus achado no caminho.** O `getMenu()` usava `include` sem `select`,
+então trazia a coluna `imageData` — os **bytes** de cada foto — em toda
+listagem do cardápio. Enquanto as fotos eram arquivos da landing isso não
+custava nada, porque a coluna estava vazia. Passaria a arrastar dezenas de
+megabytes por requisição no instante em que as fotos entrassem no banco.
+Agora todo `select` de produto é explícito.
+
+**Migração das fotos do seed.** `prisma/importar-fotos-do-seed.ts` lê os
+JPGs da landing e grava no banco. Idempotente (pula quem já tem foto no
+banco) e obrigatoriamente **depois** do deploy da API nova — ver
+`DEPLOY.md`, passo 4.
+
+---
+
 ## 2026-08-06 — Build no Railway instala devDependencies explicitamente
 
 **Sintoma.** Depois de resolver o `EBUSY`, o build avançou e quebrou em

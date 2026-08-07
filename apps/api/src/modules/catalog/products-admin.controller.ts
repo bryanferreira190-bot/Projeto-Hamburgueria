@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -72,5 +73,10 @@ export class ProductsAdminController {
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
     return this.products.replaceImage(id, file, adminId);
+  }
+
+  @Delete(':id/image')
+  removeImage(@Param('id') id: string, @CurrentAdmin('sub') adminId: string) {
+    return this.products.removeImage(id, adminId);
   }
 }

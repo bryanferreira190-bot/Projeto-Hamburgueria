@@ -44,6 +44,8 @@ export function ProdutoEditor({
 
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previa, setPrevia] = useState<string | null>(null);
+  /* So vira chamada de verdade no salvar: fechar sem salvar nao apaga nada. */
+  const [removerFoto, setRemoverFoto] = useState(false);
 
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -65,6 +67,8 @@ export function ProdutoEditor({
 
     setArquivo(file);
     setPrevia(URL.createObjectURL(file));
+    /* Escolher uma foto nova cancela o pedido de remocao. */
+    setRemoverFoto(false);
   };
 
   const salvar = async () => {
@@ -96,6 +100,8 @@ export function ProdutoEditor({
 
       if (arquivo) {
         await adminApi.enviarFoto(produto.id, arquivo);
+      } else if (removerFoto) {
+        await adminApi.removerFoto(produto.id);
       }
 
       aoSalvar();
@@ -106,7 +112,8 @@ export function ProdutoEditor({
     }
   };
 
-  const imagemExibida = previa ?? resolveImageUrl(produto.imageUrl);
+  const imagemExibida = previa ?? (removerFoto ? null : resolveImageUrl(produto.imageUrl));
+  const temFotoParaRemover = Boolean(arquivo ?? (!removerFoto && produto.imageUrl));
 
   return (
     <div className="space-y-5">
@@ -126,6 +133,12 @@ export function ProdutoEditor({
                 NOVA
               </span>
             )}
+
+            {removerFoto && !previa && (
+              <span className="absolute top-2 left-2 rounded-full bg-vermelho px-2 py-0.5 text-[0.65rem] font-bold text-white">
+                SERÁ REMOVIDA
+              </span>
+            )}
           </div>
 
           <label className="mt-2 block cursor-pointer">
@@ -139,6 +152,30 @@ export function ProdutoEditor({
               {arquivo ? 'Trocar novamente' : 'Escolher foto'}
             </span>
           </label>
+
+          {temFotoParaRemover && (
+            <button
+              type="button"
+              onClick={() => {
+                setArquivo(null);
+                setPrevia(null);
+                setRemoverFoto(true);
+              }}
+              className="mt-2 w-full rounded-full px-4 py-1.5 text-sm font-semibold text-cinza-2 transition-colors hover:text-vermelho-2"
+            >
+              Remover foto
+            </button>
+          )}
+
+          {removerFoto && (
+            <button
+              type="button"
+              onClick={() => setRemoverFoto(false)}
+              className="mt-2 w-full rounded-full px-4 py-1.5 text-sm font-semibold text-cinza-2 transition-colors hover:text-white"
+            >
+              Manter a foto atual
+            </button>
+          )}
 
           {/* A dica vem de @adventure/shared, a mesma constante que a API
               usa para validar — nunca vai prometer um limite diferente. */}

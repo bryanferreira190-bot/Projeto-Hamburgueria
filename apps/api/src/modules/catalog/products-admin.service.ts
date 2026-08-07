@@ -43,6 +43,20 @@ export class ProductsAdminService {
         ...(input.priceCents !== undefined ? { priceCents: input.priceCents } : {}),
         ...(input.isAvailable !== undefined ? { isAvailable: input.isAvailable } : {}),
       },
+      /* Sem esta lista o Prisma devolveria tambem o imageData — os bytes
+         da foto — so para responder a edicao de um preco. */
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        imageUrl: true,
+        imageMimeType: true,
+        imageVersion: true,
+        priceCents: true,
+        isAvailable: true,
+        isFeatured: true,
+      },
     });
 
     /* Mudanca de preco fica registrada: e o campo que mais gera duvida
@@ -90,6 +104,38 @@ export class ProductsAdminService {
     return { imageUrl };
   }
 
+  /**
+   * Tira a foto do produto.
+   *
+   * O cardapio nao quebra sem foto — o cartao cai no icone padrao —, entao
+   * apagar e uma saida legitima para uma foto ruim, sem obrigar a pessoa a
+   * arrumar outra na hora.
+   */
+  async removeImage(productId: string, adminId: string) {
+    const produto = await this.prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+      select: { id: true, name: true, imageUrl: true, imageMimeType: true },
+    });
+
+    if (!produto) throw new NotFoundException('Produto nao encontrado');
+
+    await this.images.remove(productId);
+
+    this.logger.log(`Foto de "${produto.name}" removida pelo admin ${adminId}`);
+
+    await this.prisma.auditLog.create({
+      data: {
+        adminUserId: adminId,
+        action: 'product.image.remove',
+        entityType: 'product',
+        entityId: productId,
+        before: { imageUrl: produto.imageUrl, mimeType: produto.imageMimeType },
+      },
+    });
+
+    return { imageUrl: null };
+  }
+
   /** Limites do upload, para o formulario montar a dica sem duplicar numero. */
   getImageRules() {
     return {
@@ -124,6 +170,8 @@ export class ProductsAdminService {
     name: string;
     description: string | null;
     imageUrl: string | null;
+    imageMimeType: string | null;
+    imageVersion: number;
     priceCents: number;
     isAvailable: boolean;
     isFeatured: boolean;
@@ -133,7 +181,7 @@ export class ProductsAdminService {
       slug: produto.slug,
       name: produto.name,
       description: produto.description,
-      imageUrl: produto.imageUrl,
+      imageUrl: this.images.resolveUrl(produto),
       priceCents: produto.priceCents,
       priceFormatted: formatBRL(produto.priceCents),
       isAvailable: produto.isAvailable,
