@@ -39,12 +39,12 @@ export const PRODUCT_IMAGE = {
   /** Quadrada: e assim que o cartao do cardapio exibe. */
   recommendedWidth: 800,
   recommendedHeight: 800,
-  maxBytes: 2 * 1024 * 1024,
+  maxBytes: 3 * 1024 * 1024,
   acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'] as const,
 } as const;
 
 export const PRODUCT_IMAGE_HINT =
-  'Quadrada, 800 x 800 px. JPG, PNG ou WEBP, ate 2 MB. Fundo escuro combina melhor com o site.';
+  'Quadrada, 800 x 800 px. JPG, PNG ou WEBP, ate 3 MB. Fundo escuro combina melhor com o site.';
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

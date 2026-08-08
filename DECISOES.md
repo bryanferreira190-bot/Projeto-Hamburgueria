@@ -165,9 +165,9 @@ qualquer produto. Isso exigiu decidir onde o arquivo enviado passa a morar.
 **Por que não S3 / Cloudflare R2 agora.** É a resposta "certa" em escala, mas
 exigiria criar conta, gerar credenciais e configurá-las antes de qualquer
 linha funcionar. Para ~30 produtos, com foto trocada raramente e limite de
-2 MB por arquivo, o custo dessa dependência não se paga hoje.
+3 MB por arquivo, o custo dessa dependência não se paga hoje.
 
-**Por que é seguro nesta escala.** 30 produtos × 2 MB no pior caso = 60 MB,
+**Por que é seguro nesta escala.** 30 produtos × 3 MB no pior caso = 90 MB,
 contra 512 MB do plano gratuito do Neon. Na prática as fotos ficam bem abaixo
 disso.
 

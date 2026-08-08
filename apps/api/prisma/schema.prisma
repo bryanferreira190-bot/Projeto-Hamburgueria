@@ -199,7 +199,7 @@ model Product {
   /// FOTO GUARDADA NO PROPRIO BANCO
   ///
   /// Escolha consciente para esta escala: ~30 produtos, foto trocada
-  /// raramente, limite de 2 MB por arquivo. Evita depender de servico
+  /// raramente, limite de 3 MB por arquivo. Evita depender de servico
   /// externo e funciona em qualquer hospedagem, sem credencial extra.
   /// O acesso passa pelo ImageStorage, entao migrar para S3/R2 depois
   /// nao espalha mudanca pelo resto do codigo. Ver DECISOES.md.

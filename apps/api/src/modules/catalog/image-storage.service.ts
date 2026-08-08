@@ -24,7 +24,7 @@ export interface ProductImageFields {
  * ARMAZENAMENTO DAS FOTOS DE PRODUTO
  *
  * Hoje guarda no proprio Postgres. E uma escolha consciente para esta
- * escala (~30 produtos, troca rara, 2 MB por arquivo) que evita depender
+ * escala (~30 produtos, troca rara, 3 MB por arquivo) que evita depender
  * de servico externo e credencial extra.
  *
  * Todo acesso a foto passa por aqui de proposito: migrar para S3 ou
