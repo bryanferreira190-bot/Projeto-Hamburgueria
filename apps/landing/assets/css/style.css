@@ -676,10 +676,10 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 
 /* ---------- Convite para visitar a loja ----------
    Fecha a seção fazendo a ponte entre "olha o que falam da gente" e
-   "vem conferir pessoalmente". Texto de um lado, mapa do outro. */
+   "vem conferir pessoalmente". Bloco centralizado: chamada e endereço
+   em cima, mapa ocupando a largura toda embaixo. */
 .visita{
-  display:grid; grid-template-columns:1.05fr .95fr;
-  margin-top:56px;
+  max-width:880px; margin:56px auto 0;
   background:var(--preto-3);
   border:1px solid var(--borda); border-radius:var(--raio);
   /* Segura o mapa dentro do canto arredondado. */
@@ -689,35 +689,35 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .visita:hover{ border-color:var(--amarelo); box-shadow:var(--sombra); }
 
 .visita__texto{
-  display:flex; flex-direction:column; align-items:flex-start; gap:14px;
-  padding:42px 38px;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  padding:38px 32px 32px;
+  text-align:center;
 }
-/* O .eyebrow já traz margem própria, que aqui brigaria com o gap do flex. */
-.visita__texto .eyebrow{ margin-bottom:0; }
 .visita__titulo{
-  font-family:var(--display); font-size:clamp(1.6rem,3.2vw,2.4rem);
+  font-family:var(--display); font-size:clamp(1.7rem,3.4vw,2.4rem);
   line-height:1.05; text-transform:uppercase;
 }
-.visita__lead{ color:var(--cinza); font-size:.99rem; }
 
 .visita__end{
-  display:flex; align-items:flex-start; gap:12px;
-  width:100%; padding:16px 18px;
+  /* inline-flex para o cartão ficar do tamanho do endereço e centralizado,
+     em vez de esticar de ponta a ponta. */
+  display:inline-flex; align-items:center; gap:12px;
+  padding:14px 22px;
   background:var(--preto-2);
   border:1px solid var(--borda); border-radius:var(--raio-sm);
-  font-style:normal;
+  font-style:normal; text-align:left;
 }
 .visita__pin{ flex:none; font-size:1.15rem; line-height:1.5; }
 .visita__end strong{ display:block; font-size:.95rem; }
 .visita__end strong + span{ font-size:.85rem; color:var(--cinza-2); }
 
-.visita__acoes{ display:flex; flex-wrap:wrap; gap:12px; margin-top:2px; }
+.visita__acoes{ display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:2px; }
 
 /* ---------- Mapa ---------- */
 .visita__mapa{
-  position:relative; min-height:320px;
+  position:relative; height:440px;
   background:var(--carvao);
-  border-left:1px solid var(--borda);
+  border-top:1px solid var(--borda);
 }
 .visita__mapa iframe{
   position:absolute; inset:0;
@@ -876,10 +876,7 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
   .hours__head .sec-title{ text-align:left; }
   .footer__grid{ grid-template-columns:1fr 1fr; gap:34px; }
   .reviews{ grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); }
-  /* Empilhado, o mapa vai para baixo do texto e vira uma faixa. A borda
-     que separava as colunas passa a separar as linhas. */
-  .visita{ grid-template-columns:1fr; }
-  .visita__mapa{ min-height:280px; border-left:0; border-top:1px solid var(--borda); }
+  .visita__mapa{ height:380px; }
   /* Setas do carrossel só valem a pena com espaço sobrando nas laterais;
      abaixo de 1000px o toque já é o jeito natural de navegar. */
   .carrossel-seta{ display:none; }
@@ -1008,8 +1005,11 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
   .reviews{ grid-template-columns:1fr; }
   .review{ padding:28px 20px 22px; }
   .review__aspas{ font-size:4.5rem; right:14px; }
-  .visita__texto{ padding:30px 22px; }
-  .visita__mapa{ min-height:230px; }
+  .visita__texto{ padding:30px 20px 26px; }
+  .visita__mapa{ height:300px; }
+  /* Num celular o cartão do endereço para de ser "do tamanho do texto"
+     e ocupa a largura toda, senão fica com sobra estranha nas laterais. */
+  .visita__end{ display:flex; width:100%; padding:14px 16px; }
   /* Os dois botões ocupam a largura toda, como no restante do site. */
   .visita__acoes{ width:100%; }
   .visita__acoes .btn{ width:100%; }
