@@ -751,13 +751,22 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 }
 .cta-band::before{
   content:''; position:absolute; inset:0; z-index:-1;
-  background:linear-gradient(180deg, rgba(224,31,38,.88) 0%, rgba(10,10,10,.92) 100%);
+  /* Vermelho bem mais fraco que antes (era .88/.92) — a foto de fundo
+     precisa aparecer. O degrade escurece um pouco mais embaixo so para
+     nao brigar com o botao e o texto. */
+  background:linear-gradient(180deg, rgba(224,31,38,.35) 0%, rgba(10,10,10,.6) 100%);
 }
 .cta-band h2{
   font-family:var(--display); font-size:clamp(2.2rem,6vw,4rem);
   line-height:1; text-transform:uppercase; margin-bottom:14px;
+  /* Com o overlay mais fraco, o texto precisa desse reforco pra continuar
+     legivel em cima de qualquer trecho mais claro da foto. */
+  text-shadow:0 2px 18px rgba(0,0,0,.75);
 }
-.cta-band p{ color:rgba(255,255,255,.82); font-size:1.08rem; margin-bottom:32px; }
+.cta-band p{
+  color:rgba(255,255,255,.9); font-size:1.08rem; margin-bottom:32px;
+  text-shadow:0 2px 14px rgba(0,0,0,.7);
+}
 .cta-band .btn--primary{
   background:var(--amarelo); color:var(--preto); box-shadow:var(--glow-am);
 }
