@@ -674,6 +674,72 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .reviews__foot{ text-align:center; margin-top:48px; }
 .reviews__foot p{ color:var(--cinza); margin-bottom:18px; }
 
+/* ---------- Convite para visitar a loja ----------
+   Fecha a seção fazendo a ponte entre "olha o que falam da gente" e
+   "vem conferir pessoalmente". Texto de um lado, mapa do outro. */
+.visita{
+  display:grid; grid-template-columns:1.05fr .95fr;
+  margin-top:56px;
+  background:var(--preto-3);
+  border:1px solid var(--borda); border-radius:var(--raio);
+  /* Segura o mapa dentro do canto arredondado. */
+  overflow:hidden;
+  transition:border-color var(--mid), box-shadow var(--mid);
+}
+.visita:hover{ border-color:var(--amarelo); box-shadow:var(--sombra); }
+
+.visita__texto{
+  display:flex; flex-direction:column; align-items:flex-start; gap:14px;
+  padding:42px 38px;
+}
+/* O .eyebrow já traz margem própria, que aqui brigaria com o gap do flex. */
+.visita__texto .eyebrow{ margin-bottom:0; }
+.visita__titulo{
+  font-family:var(--display); font-size:clamp(1.6rem,3.2vw,2.4rem);
+  line-height:1.05; text-transform:uppercase;
+}
+.visita__lead{ color:var(--cinza); font-size:.99rem; }
+
+.visita__end{
+  display:flex; align-items:flex-start; gap:12px;
+  width:100%; padding:16px 18px;
+  background:var(--preto-2);
+  border:1px solid var(--borda); border-radius:var(--raio-sm);
+  font-style:normal;
+}
+.visita__pin{ flex:none; font-size:1.15rem; line-height:1.5; }
+.visita__end strong{ display:block; font-size:.95rem; }
+.visita__end strong + span{ font-size:.85rem; color:var(--cinza-2); }
+
+.visita__acoes{ display:flex; flex-wrap:wrap; gap:12px; margin-top:2px; }
+
+/* ---------- Mapa ---------- */
+.visita__mapa{
+  position:relative; min-height:320px;
+  background:var(--carvao);
+  border-left:1px solid var(--borda);
+}
+.visita__mapa iframe{
+  position:absolute; inset:0;
+  width:100%; height:100%; border:0;
+  /* O mapa do OpenStreetMap é claro e destoaria do site escuro. Este
+     filtro o converte para uma versão escura. Para voltar ao mapa
+     original, basta remover esta linha. */
+  filter:invert(91%) hue-rotate(180deg) saturate(.72) contrast(1.04);
+}
+/* Selo por cima do mapa, para o ponto no mapa ter nome sem depender de
+   marcador customizado (que exigiria uma biblioteca de mapas). */
+.visita__selo{
+  position:absolute; left:16px; bottom:16px;
+  padding:9px 14px;
+  background:rgba(10,10,10,.88);
+  border:1px solid var(--borda); border-left:3px solid var(--amarelo);
+  border-radius:var(--raio-sm);
+  backdrop-filter:blur(6px);
+}
+.visita__selo strong{ display:block; font-size:.86rem; line-height:1.3; }
+.visita__selo span{ font-size:.75rem; color:var(--cinza-2); }
+
 /* ==========================================================================
    CTA BAND
    ========================================================================== */
@@ -810,6 +876,10 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
   .hours__head .sec-title{ text-align:left; }
   .footer__grid{ grid-template-columns:1fr 1fr; gap:34px; }
   .reviews{ grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); }
+  /* Empilhado, o mapa vai para baixo do texto e vira uma faixa. A borda
+     que separava as colunas passa a separar as linhas. */
+  .visita{ grid-template-columns:1fr; }
+  .visita__mapa{ min-height:280px; border-left:0; border-top:1px solid var(--borda); }
   /* Setas do carrossel só valem a pena com espaço sobrando nas laterais;
      abaixo de 1000px o toque já é o jeito natural de navegar. */
   .carrossel-seta{ display:none; }
@@ -938,4 +1008,9 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
   .reviews{ grid-template-columns:1fr; }
   .review{ padding:28px 20px 22px; }
   .review__aspas{ font-size:4.5rem; right:14px; }
+  .visita__texto{ padding:30px 22px; }
+  .visita__mapa{ min-height:230px; }
+  /* Os dois botões ocupam a largura toda, como no restante do site. */
+  .visita__acoes{ width:100%; }
+  .visita__acoes .btn{ width:100%; }
 }

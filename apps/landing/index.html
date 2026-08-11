@@ -639,6 +639,54 @@
         Ver todas as avaliações
       </a>
     </div>
+
+    <!-- ---------- CONVITE PARA VISITAR A LOJA ----------
+         O mapa é um embed do OpenStreetMap: não precisa de chave de API,
+         não tem custo e não depende de cadastro em serviço nenhum.
+         Para mudar o local, troque as coordenadas em TRÊS pontos:
+         o "marker" e o "bbox" do iframe (o bbox é a área visível, mais ou
+         menos 0,003 grau em volta do ponto) e o "destination" do botão
+         "Como chegar". -->
+    <div class="visita reveal">
+      <div class="visita__texto">
+        <span class="eyebrow">De perto é outra história</span>
+        <h3 class="visita__titulo">VENHA SENTIR O <span class="hl">CHEIRO DA CHAPA</span></h3>
+        <p class="visita__lead">
+          Foto nenhuma entrega o barulho da carne na grelha nem o cheiro da cebola
+          dourando. Tem mesa, tem gente boa e tem aquele lanche saindo quentinho
+          na sua frente. Chega mais — a casa é sua.
+        </p>
+
+        <address class="visita__end">
+          <span class="visita__pin" aria-hidden="true">📍</span>
+          <span>
+            <strong>Av. da Paz Universal, 686</strong>
+            <span>Itu — SP · CEP 13308-125</span>
+          </span>
+        </address>
+
+        <div class="visita__acoes">
+          <a class="btn btn--primary"
+             href="https://www.google.com/maps/dir/?api=1&amp;destination=-23.3794411,-47.331423"
+             target="_blank" rel="noopener noreferrer">
+            <span class="btn__icon">🧭</span> Como chegar
+          </a>
+          <a class="btn btn--outline" href="#horarios">Ver horários</a>
+        </div>
+      </div>
+
+      <figure class="visita__mapa">
+        <iframe
+          title="Mapa com a localização da Adventure Burguer em Itu"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          src="https://www.openstreetmap.org/export/embed.html?bbox=-47.3349%2C-23.3816%2C-47.3279%2C-23.3772&amp;layer=mapnik&amp;marker=-23.3794411%2C-47.331423"></iframe>
+        <figcaption class="visita__selo">
+          <strong>Adventure Burguer</strong>
+          <span>Cidade Nova · Itu</span>
+        </figcaption>
+      </figure>
+    </div>
   </div>
 </section>
 
