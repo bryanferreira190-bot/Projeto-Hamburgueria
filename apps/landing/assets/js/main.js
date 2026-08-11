@@ -7,7 +7,7 @@
    Todo botão/link com a classe .js-pedido aponta para o endereço abaixo.
    Para trocar o destino no site inteiro, mude APENAS esta linha.
    -------------------------------------------------------------------------- */
-const LINK_PEDIDO = 'https://www.whatsmenu.com.br/adventureburguer';
+const LINK_PEDIDO = 'https://loja.impactdev.site';
 
 /* --------------------------------------------------------------------------
    2) HORÁRIO DE FUNCIONAMENTO
