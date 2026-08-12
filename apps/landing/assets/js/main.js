@@ -109,35 +109,108 @@ function initReveal(){
 
 
 /* ==========================================================================
-   Carrossel de produtos — setas + estado de início/fim
+   Vitrine dos favoritos — troca a foto sozinha, com setas e bolinhas
+
+   Não há lista de produtos aqui de propósito: nome e descrição saem dos
+   data-nome/data-desc do próprio HTML, e as bolinhas são ligadas pela
+   ordem. Assim, acrescentar um terceiro lanche é só mexer no HTML.
    ========================================================================== */
-function initCarrosselProdutos(){
-  const trilho = document.getElementById('carrosselProdutos');
-  const area   = trilho?.closest('.carrossel-produtos');
-  if (!trilho || !area) return;
+const FAVORITO_INTERVALO = 6000;
 
-  const setaPrev = area.querySelector('.carrossel-seta--prev');
-  const setaNext = area.querySelector('.carrossel-seta--next');
+function initFavoritos(){
+  const area = document.getElementById('favoritos');
+  if (!area) return;
 
-  // Rola quase a largura visível a cada clique, mantendo um pedaço do
-  // próximo cartão à mostra — isso deixa claro que dá para continuar.
-  const rolar = (direcao) => {
-    trilho.scrollBy({ left: direcao * trilho.clientWidth * 0.85, behavior: 'smooth' });
-  };
+  const fotos = [...area.querySelectorAll('.favorito')];
+  const dots  = [...area.querySelectorAll('.favoritos__dot')];
+  const info  = area.querySelector('.favoritos__info');
+  const nome  = area.querySelector('.favoritos__nome');
+  const desc  = area.querySelector('.favoritos__desc');
+  const barra = area.querySelector('.favoritos__barra span');
+  if (fotos.length < 2) return;
 
-  setaPrev?.addEventListener('click', () => rolar(-1));
-  setaNext?.addEventListener('click', () => rolar(1));
+  // Quem pediu menos movimento no sistema não recebe troca automática.
+  const menosMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Desativa a seta quando não há mais para onde rolar naquele sentido.
-  const atualizarSetas = () => {
-    const fimDoScroll = trilho.scrollWidth - trilho.clientWidth - 1;
-    if (setaPrev) setaPrev.disabled = trilho.scrollLeft <= 0;
-    if (setaNext) setaNext.disabled = trilho.scrollLeft >= fimDoScroll;
-  };
+  let atual = 0;
+  let relogio = null;
+  let trocando = false;
 
-  trilho.addEventListener('scroll', atualizarSetas, { passive: true });
-  window.addEventListener('resize', atualizarSetas);
-  atualizarSetas();
+  area.style.setProperty('--intervalo', FAVORITO_INTERVALO + 'ms');
+
+  function reiniciarBarra(){
+    if (!barra || menosMovimento) return;
+    barra.classList.remove('is-correndo');
+    // Forçar o reflow reinicia a animação; sem isto ela continuaria de onde parou.
+    void barra.offsetWidth;
+    barra.classList.add('is-correndo');
+  }
+
+  function mostrar(indice){
+    indice = (indice + fotos.length) % fotos.length;
+    if (indice === atual || trocando) return;
+    trocando = true;
+
+    const saindo = fotos[atual];
+    const entrando = fotos[indice];
+
+    saindo.classList.remove('is-ativo');
+    saindo.classList.add('is-saindo');
+    entrando.classList.add('is-ativo');
+
+    // A classe de saída é limpa depois da transição, senão a foto
+    // reapareceria encolhida na próxima volta do ciclo.
+    setTimeout(() => {
+      saindo.classList.remove('is-saindo');
+      trocando = false;
+    }, 900);
+
+    // O texto sai, é trocado fora da vista e volta — dá a impressão de
+    // que ele acompanha a foto, sem precisar duplicar o markup.
+    info?.classList.add('is-trocando');
+    setTimeout(() => {
+      if (nome) nome.textContent = entrando.dataset.nome || '';
+      if (desc) desc.textContent = entrando.dataset.desc || '';
+      info?.classList.remove('is-trocando');
+    }, 350);
+
+    dots[atual]?.classList.remove('is-ativo');
+    dots[indice]?.classList.add('is-ativo');
+
+    atual = indice;
+    reiniciarBarra();
+  }
+
+  function agendar(){
+    if (menosMovimento) return;
+    clearInterval(relogio);
+    relogio = setInterval(() => mostrar(atual + 1), FAVORITO_INTERVALO);
+    reiniciarBarra();
+  }
+
+  function irPara(indice){
+    mostrar(indice);
+    agendar();   // qualquer clique reinicia a contagem
+  }
+
+  area.querySelector('.favoritos__seta--prev')
+      ?.addEventListener('click', () => irPara(atual - 1));
+  area.querySelector('.favoritos__seta--next')
+      ?.addEventListener('click', () => irPara(atual + 1));
+
+  dots.forEach((dot, i) => dot.addEventListener('click', () => irPara(i)));
+
+  // Com o mouse em cima, ninguém quer a foto trocando no meio da leitura.
+  area.addEventListener('mouseenter', () => { clearInterval(relogio); barra?.classList.remove('is-correndo'); });
+  area.addEventListener('mouseleave', agendar);
+
+  // Aba em segundo plano não precisa gastar troca de foto.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearInterval(relogio);
+    else agendar();
+  });
+
+  agendar();
 }
 
 
@@ -272,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
   aplicarLinkPedido();
   initNav();
   initReveal();
-  initCarrosselProdutos();
+  initFavoritos();
   initFab();
   initVideoSobre();
   initAno();
