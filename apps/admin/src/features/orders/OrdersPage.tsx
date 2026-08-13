@@ -181,7 +181,19 @@ function CartaoPedido({
         {pedido.items.map((item, index) => (
           <li key={index}>
             <span className="text-amarelo">{item.quantity}×</span> {item.productName}
-            {item.notes && <span className="block pl-4 text-cinza-2 italic">{item.notes}</span>}
+
+            {/* Adicionais em verde e observacao em vermelho: na correria da
+                cozinha, a cor separa "poe isso" de "tira isso" antes mesmo
+                de ler. */}
+            {item.options.map((opcao) => (
+              <span key={opcao.name} className="block pl-4 font-semibold text-verde">
+                + {opcao.name}
+              </span>
+            ))}
+
+            {item.notes && (
+              <span className="block pl-4 font-semibold text-vermelho-2">⚠ {item.notes}</span>
+            )}
           </li>
         ))}
       </ul>

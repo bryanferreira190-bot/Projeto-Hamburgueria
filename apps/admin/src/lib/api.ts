@@ -114,7 +114,13 @@ export interface OrderRow {
   status: string;
   createdAt: string;
   customer: { name: string | null; phone: string };
-  items: { productName: string; quantity: number; notes: string | null }[];
+  items: {
+    productName: string;
+    quantity: number;
+    /** Adicionais escolhidos pelo cliente. A cozinha precisa ver. */
+    options: { name: string; priceCents: number }[];
+    notes: string | null;
+  }[];
   totalCents: number;
   totalFormatted: string;
   paymentMethod: string;

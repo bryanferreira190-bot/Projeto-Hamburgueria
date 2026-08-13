@@ -170,7 +170,14 @@ function OrderDetail({ number }: { number: string }) {
             <li key={index} className="flex justify-between gap-3">
               <span>
                 <span className="text-amarelo">{item.quantity}×</span> {item.productName}
-                {item.notes && <span className="block text-xs text-cinza-2">{item.notes}</span>}
+                {item.options.map((opcao) => (
+                  <span key={opcao.name} className="block text-xs text-amarelo">
+                    + {opcao.name}
+                  </span>
+                ))}
+                {item.notes && (
+                  <span className="block text-xs text-cinza-2 italic">“{item.notes}”</span>
+                )}
               </span>
               <span className="shrink-0 text-cinza">{item.totalFormatted}</span>
             </li>
