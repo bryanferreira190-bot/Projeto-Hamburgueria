@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -140,9 +141,16 @@ export function Badge({
 
 /**
  * Caixa central com fundo escurecido, para acoes que interrompem o fluxo
- * (cadastrar algo novo, confirmar uma exclusao). Diferente do CartDrawer
+ * (escolher adicionais, cadastrar algo novo). Diferente do CartDrawer
  * — aquele desliza da lateral porque e uma area que fica aberta enquanto
  * a pessoa navega; esta aqui e uma pergunta pontual que fecha sozinha.
+ *
+ * VAI PARA O <body> POR PORTAL, e nao onde foi declarada. Sem isso, um
+ * ancestral com transform (os cartoes do cardapio tem animacao de
+ * entrada com `fill-mode: both`, que deixa o transform aplicado para
+ * sempre) vira bloco de contencao: o `fixed` passa a se posicionar
+ * dentro do cartao e o `overflow-hidden` dele recorta a caixa, que
+ * aparece espremida na largura do cartao em vez de sobre a pagina.
  */
 export function Modal({
   titulo,
@@ -167,19 +175,15 @@ export function Modal({
     };
   }, [aoFechar]);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
-      <div
-        onClick={aoFechar}
-        className="fixed inset-0 bg-preto/70 backdrop-blur-sm"
-        aria-hidden
-      />
+      <div onClick={aoFechar} className="fixed inset-0 bg-preto/70 backdrop-blur-sm" aria-hidden />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
-        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-borda bg-preto-2 p-6 shadow-[0_20px_60px_rgba(0,0,0,.6)]"
+        className="animar-surgir relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-borda bg-preto-2 p-6 shadow-[0_20px_60px_rgba(0,0,0,.6)]"
       >
         <div className="mb-5 flex items-center justify-between gap-3">
           <h2 className="titulo-display text-xl">{titulo}</h2>
@@ -195,7 +199,8 @@ export function Modal({
 
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
