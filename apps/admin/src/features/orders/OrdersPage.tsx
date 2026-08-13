@@ -187,7 +187,8 @@ function CartaoPedido({
                 de ler. */}
             {item.options.map((opcao) => (
               <span key={opcao.name} className="block pl-4 font-semibold text-verde">
-                + {opcao.name}
+                + {opcao.quantity > 1 && `${opcao.quantity}× `}
+                {opcao.name}
               </span>
             ))}
 

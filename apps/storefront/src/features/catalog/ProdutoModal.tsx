@@ -17,27 +17,44 @@ export function ProdutoModal({ produto, aoFechar }: { produto: Product; aoFechar
   const add = useCart((state) => state.add);
   const openCart = useCart((state) => state.open);
 
-  const [escolhidos, setEscolhidos] = useState<Set<string>>(new Set());
+  /** id do adicional -> quantas unidades dele. Ausente = zero. */
+  const [escolhidos, setEscolhidos] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState('');
   const [quantidade, setQuantidade] = useState(1);
 
-  const alternar = (id: string) =>
-    setEscolhidos((atual) => {
-      const proximo = new Set(atual);
-      if (proximo.has(id)) proximo.delete(id);
-      else proximo.add(id);
-      return proximo;
-    });
-
-  /* Percorre os grupos em vez do Set para manter a ordem do cardapio. */
+  /* Percorre os grupos em vez do objeto para manter a ordem do cardapio. */
   const adicionais: CartOption[] = produto.optionGroups.flatMap((grupo) =>
     grupo.options
-      .filter((opcao) => escolhidos.has(opcao.id))
-      .map((opcao) => ({ id: opcao.id, name: opcao.name, priceCents: opcao.priceCents })),
+      .filter((opcao) => (escolhidos[opcao.id] ?? 0) > 0)
+      .map((opcao) => ({
+        id: opcao.id,
+        name: opcao.name,
+        priceCents: opcao.priceCents,
+        quantity: escolhidos[opcao.id]!,
+      })),
   );
 
+  const totalDeAdicionais = adicionais.reduce((soma, opcao) => soma + opcao.quantity, 0);
   const totalUnitario =
-    produto.priceCents + adicionais.reduce((soma, opcao) => soma + opcao.priceCents, 0);
+    produto.priceCents +
+    adicionais.reduce((soma, opcao) => soma + opcao.priceCents * opcao.quantity, 0);
+
+  /**
+   * O teto vem do proprio grupo (maxSelect) e conta o total somado, nao
+   * por tipo — a API recusa o pedido que passar disso, entao o botao "+"
+   * trava antes de deixar montar algo que seria rejeitado no fim.
+   */
+  const tetoDoGrupo = produto.optionGroups[0]?.maxSelect ?? 0;
+  const noTeto = totalDeAdicionais >= tetoDoGrupo;
+
+  const mudarQuantidade = (id: string, delta: number) =>
+    setEscolhidos((atual) => {
+      const novo = Math.max(0, (atual[id] ?? 0) + delta);
+      const proximo = { ...atual };
+      if (novo === 0) delete proximo[id];
+      else proximo[id] = novo;
+      return proximo;
+    });
 
   const confirmar = () => {
     add(produto, {
@@ -76,35 +93,53 @@ export function ProdutoModal({ produto, aoFechar }: { produto: Product; aoFechar
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <h3 className="text-sm font-bold tracking-wide uppercase">{grupo.name}</h3>
               <span className="text-xs text-cinza-2">
-                {grupo.minSelect > 0 ? 'Obrigatório' : 'Opcional'}
+                {noTeto ? `Máximo de ${tetoDoGrupo}` : grupo.minSelect > 0 ? 'Obrigatório' : 'Opcional'}
               </span>
             </div>
 
             <ul className="space-y-2">
               {grupo.options.map((opcao) => {
-                const marcado = escolhidos.has(opcao.id);
+                const qtd = escolhidos[opcao.id] ?? 0;
 
                 return (
-                  <li key={opcao.id}>
-                    <label
-                      className={cx(
-                        'flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors',
-                        marcado
-                          ? 'border-amarelo bg-amarelo/8'
-                          : 'border-borda bg-preto-3 hover:border-cinza-2',
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={marcado}
-                        onChange={() => alternar(opcao.id)}
-                        className="size-4 accent-[#ffc21a]"
-                      />
-                      <span className="flex-1 text-sm font-semibold uppercase">{opcao.name}</span>
+                  <li
+                    key={opcao.id}
+                    className={cx(
+                      'flex items-center gap-3 rounded-xl border px-4 py-2.5 transition-colors',
+                      qtd > 0 ? 'border-amarelo bg-amarelo/8' : 'border-borda bg-preto-3',
+                    )}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold uppercase">{opcao.name}</span>
                       <span className="text-sm font-bold text-amarelo">
                         +{opcao.priceFormatted}
                       </span>
-                    </label>
+                    </span>
+
+                    <span className="flex shrink-0 items-center gap-1 rounded-full border border-borda">
+                      <BotaoQtd
+                        rotulo={`Tirar um ${opcao.name}`}
+                        onClick={() => mudarQuantidade(opcao.id, -1)}
+                        desabilitado={qtd === 0}
+                      >
+                        −
+                      </BotaoQtd>
+                      <span
+                        className={cx(
+                          'w-6 text-center text-sm font-bold',
+                          qtd > 0 ? 'text-amarelo' : 'text-cinza-2',
+                        )}
+                      >
+                        {qtd}
+                      </span>
+                      <BotaoQtd
+                        rotulo={`Adicionar um ${opcao.name}`}
+                        onClick={() => mudarQuantidade(opcao.id, 1)}
+                        desabilitado={noTeto}
+                      >
+                        +
+                      </BotaoQtd>
+                    </span>
                   </li>
                 );
               })}
@@ -160,10 +195,12 @@ export function ProdutoModal({ produto, aoFechar }: { produto: Product; aoFechar
 function BotaoQtd({
   rotulo,
   onClick,
+  desabilitado,
   children,
 }: {
   rotulo: string;
   onClick: () => void;
+  desabilitado?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -171,7 +208,13 @@ function BotaoQtd({
       type="button"
       aria-label={rotulo}
       onClick={onClick}
-      className="grid size-9 place-items-center rounded-full text-lg text-cinza transition-colors hover:bg-carvao hover:text-white"
+      disabled={desabilitado}
+      className={cx(
+        'grid size-8 place-items-center rounded-full text-lg transition-colors',
+        desabilitado
+          ? 'cursor-not-allowed text-cinza-2/40'
+          : 'text-cinza hover:bg-carvao hover:text-white',
+      )}
     >
       {children}
     </button>

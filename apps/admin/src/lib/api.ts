@@ -117,8 +117,8 @@ export interface OrderRow {
   items: {
     productName: string;
     quantity: number;
-    /** Adicionais escolhidos pelo cliente. A cozinha precisa ver. */
-    options: { name: string; priceCents: number }[];
+    /** Adicionais escolhidos, ja agrupados com a quantidade pela API. */
+    options: { name: string; priceCents: number; quantity: number }[];
     notes: string | null;
   }[];
   totalCents: number;

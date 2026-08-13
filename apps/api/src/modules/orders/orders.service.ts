@@ -387,6 +387,33 @@ type OrderWithRelations = Prisma.OrderGetPayload<{
   };
 }>;
 
+/**
+ * Junta adicionais repetidos numa linha so, com a quantidade.
+ *
+ * No banco cada unidade e uma linha propria — pedir dois bacons grava
+ * duas linhas, e e assim que o preco de cada uma entra na conta. Para
+ * quem le (cozinha e cliente), porem, "2x Bacon" e mais claro do que
+ * "Bacon" duas vezes seguidas; agrupar aqui evita repetir essa mesma
+ * logica no painel e na tela de acompanhamento.
+ */
+function agruparAdicionais(options: { optionId: string; optionName: string; priceCents: number }[]) {
+  const porOpcao = new Map<string, { name: string; priceCents: number; quantity: number }>();
+
+  for (const option of options) {
+    const atual = porOpcao.get(option.optionId);
+    if (atual) atual.quantity += 1;
+    else
+      porOpcao.set(option.optionId, {
+        name: option.optionName,
+        /* Preco de UMA unidade; a quantidade fica no campo ao lado. */
+        priceCents: option.priceCents,
+        quantity: 1,
+      });
+  }
+
+  return [...porOpcao.values()];
+}
+
 function toOrderDto(order: OrderWithRelations) {
   return {
     id: order.id,
@@ -409,10 +436,7 @@ function toOrderDto(order: OrderWithRelations) {
       totalCents: item.totalCents,
       totalFormatted: formatBRL(item.totalCents),
       notes: item.notes,
-      options: item.options.map((option) => ({
-        name: option.optionName,
-        priceCents: option.priceCents,
-      })),
+      options: agruparAdicionais(item.options),
     })),
 
     subtotalCents: order.subtotalCents,

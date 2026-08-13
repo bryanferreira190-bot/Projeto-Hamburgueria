@@ -29,6 +29,16 @@ const ADICIONAIS = [
 /** So estas categorias recebem os adicionais. */
 const CATEGORIAS_COM_ADICIONAIS = ['burguers-classicos', 'burguers-especiais', 'combos'];
 
+/**
+ * Teto de adicionais SOMADOS no lanche (nao por tipo).
+ *
+ * A loja repete o mesmo id para pedir mais de um — "2x bacon" viaja como
+ * o id do bacon duas vezes —, entao este numero precisa acomodar
+ * repeticao, e nao so a quantidade de opcoes diferentes. Fica abaixo do
+ * limite de 30 do orderItemInputSchema.
+ */
+const MAX_ADICIONAIS_POR_LANCHE = 20;
+
 async function main() {
   const store = await prisma.store.findFirst();
   if (!store) throw new Error('Nenhuma loja cadastrada. Rode o seed antes: npm run db:seed');
@@ -41,7 +51,7 @@ async function main() {
   if (grupo) {
     grupo = await prisma.optionGroup.update({
       where: { id: grupo.id },
-      data: { minSelect: 0, maxSelect: ADICIONAIS.length, isActive: true },
+      data: { minSelect: 0, maxSelect: MAX_ADICIONAIS_POR_LANCHE, isActive: true },
     });
     console.log(`Grupo "${grupo.name}" ja existia — atualizado.`);
   } else {
@@ -50,9 +60,9 @@ async function main() {
         storeId: store.id,
         name: NOME_DO_GRUPO,
         description: 'Turbine seu lanche',
-        /* Opcional (min 0) e ate um de cada. */
+        /* Opcional (min 0), com teto generoso para permitir repeticao. */
         minSelect: 0,
-        maxSelect: ADICIONAIS.length,
+        maxSelect: MAX_ADICIONAIS_POR_LANCHE,
       },
     });
     console.log(`Grupo "${grupo.name}" criado.`);

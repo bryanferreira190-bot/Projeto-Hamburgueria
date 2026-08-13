@@ -117,8 +117,11 @@ export function CartDrawer() {
                         <ul className="mt-1 space-y-0.5">
                           {item.options.map((opcao) => (
                             <li key={opcao.id} className="text-xs text-amarelo">
-                              + {opcao.name}{' '}
-                              <span className="text-cinza-2">{formatBRL(opcao.priceCents)}</span>
+                              + {opcao.quantity > 1 && `${opcao.quantity}× `}
+                              {opcao.name}{' '}
+                              <span className="text-cinza-2">
+                                {formatBRL(multiplyCents(opcao.priceCents, opcao.quantity))}
+                              </span>
                             </li>
                           ))}
                         </ul>

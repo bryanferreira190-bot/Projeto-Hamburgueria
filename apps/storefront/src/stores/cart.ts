@@ -7,7 +7,9 @@ import type { Product } from '../lib/api';
 export interface CartOption {
   id: string;
   name: string;
+  /** Preco de UMA unidade deste adicional. */
   priceCents: number;
+  quantity: number;
 }
 
 export interface CartItem {
@@ -55,11 +57,11 @@ interface CartState {
  * diferenca.
  */
 function assinatura(productId: string, options: CartOption[], notes?: string): string {
-  const ids = options
-    .map((option) => option.id)
+  const escolhas = options
+    .map((option) => `${option.id}x${option.quantity}`)
     .sort()
     .join(',');
-  return `${productId}|${ids}|${notes?.trim() ?? ''}`;
+  return `${productId}|${escolhas}|${notes?.trim() ?? ''}`;
 }
 
 export const useCart = create<CartState>()(
@@ -130,7 +132,8 @@ export const useCart = create<CartState>()(
       toggle: () => set((state) => ({ isOpen: !state.isOpen })),
 
       unitTotalCents: (item) =>
-        item.unitPriceCents + sumCents(item.options.map((option) => option.priceCents)),
+        item.unitPriceCents +
+        sumCents(item.options.map((option) => multiplyCents(option.priceCents, option.quantity))),
 
       /**
        * Valor apenas para EXIBICAO. O total cobrado e sempre recalculado
@@ -152,18 +155,29 @@ export const useCart = create<CartState>()(
       partialize: (state) => ({ items: state.items }) as CartState,
 
       /**
-       * Carrinhos salvos antes dos adicionais nao tem o campo "options".
-       * Sem esta migracao, quem tinha item no carrinho abriria a loja e
-       * veria tela branca no primeiro subtotalCents() — options.map() em
-       * undefined. A versao sobe junto para a migracao rodar uma vez so.
+       * Carrinho salvo em versao antiga precisa ser ajustado antes do
+       * primeiro subtotalCents(), senao a loja abre em tela branca:
+       *   v0 -> v1  nao tinha "options" (options.map em undefined)
+       *   v1 -> v2  adicional nao tinha "quantity" (multiplyCents com
+       *             undefined resultaria em NaN no total)
        */
-      version: 1,
+      version: 2,
       migrate: (estadoSalvo, versaoAnterior) => {
         const estado = estadoSalvo as { items?: CartItem[] } | undefined;
         if (!estado?.items) return estado as CartState;
 
         if (versaoAnterior < 1) {
           estado.items = estado.items.map((item) => ({ ...item, options: item.options ?? [] }));
+        }
+
+        if (versaoAnterior < 2) {
+          estado.items = estado.items.map((item) => ({
+            ...item,
+            options: (item.options ?? []).map((opcao) => ({
+              ...opcao,
+              quantity: opcao.quantity ?? 1,
+            })),
+          }));
         }
 
         return estado as CartState;

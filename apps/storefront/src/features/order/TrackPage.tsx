@@ -172,7 +172,8 @@ function OrderDetail({ number }: { number: string }) {
                 <span className="text-amarelo">{item.quantity}×</span> {item.productName}
                 {item.options.map((opcao) => (
                   <span key={opcao.name} className="block text-xs text-amarelo">
-                    + {opcao.name}
+                    + {opcao.quantity > 1 && `${opcao.quantity}× `}
+                    {opcao.name}
                   </span>
                 ))}
                 {item.notes && (

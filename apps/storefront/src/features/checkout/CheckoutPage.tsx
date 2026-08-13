@@ -110,7 +110,12 @@ export function CheckoutPage() {
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
-        optionIds: item.options.map((option) => option.id),
+        /* "2x bacon" viaja como o id do bacon repetido duas vezes: a API
+           cobra uma linha por id, entao repetir e como se pede mais de
+           um do mesmo adicional. */
+        optionIds: item.options.flatMap((option) =>
+          Array.from({ length: option.quantity }, () => option.id),
+        ),
         ...(item.notes ? { notes: item.notes } : {}),
       })),
       paymentMethod,

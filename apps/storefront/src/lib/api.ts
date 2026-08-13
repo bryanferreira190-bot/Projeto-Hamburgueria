@@ -131,7 +131,8 @@ export interface OrderItemResponse {
   unitPriceFormatted: string;
   totalFormatted: string;
   notes: string | null;
-  options: { name: string; priceCents: number }[];
+  /** Ja agrupados com a quantidade pela API. */
+  options: { name: string; priceCents: number; quantity: number }[];
 }
 
 export interface Order {
