@@ -7,7 +7,8 @@ import { Button, EmptyState } from '../../components/ui';
 import { cx } from '../../lib/cx';
 
 export function CartDrawer() {
-  const { items, isOpen, close, remove, setQuantity, clear, subtotalCents } = useCart();
+  const { items, isOpen, close, remove, setQuantity, clear, subtotalCents, unitTotalCents } =
+    useCart();
   const navigate = useNavigate();
 
   /* Fechar com Esc e travar a rolagem do fundo enquanto o painel esta aberto. */
@@ -108,7 +109,24 @@ export function CartDrawer() {
                         </button>
                       </div>
 
-                      <p className="text-xs text-cinza">{formatBRL(item.unitPriceCents)} cada</p>
+                      <p className="text-xs text-cinza">
+                        {formatBRL(unitTotalCents(item))} cada
+                      </p>
+
+                      {item.options.length > 0 && (
+                        <ul className="mt-1 space-y-0.5">
+                          {item.options.map((opcao) => (
+                            <li key={opcao.id} className="text-xs text-amarelo">
+                              + {opcao.name}{' '}
+                              <span className="text-cinza-2">{formatBRL(opcao.priceCents)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {item.notes && (
+                        <p className="mt-1 text-xs text-cinza-2 italic">“{item.notes}”</p>
+                      )}
 
                       <div className="mt-2 flex items-center justify-between">
                         <div className="flex items-center gap-1 rounded-full border border-borda">
@@ -128,7 +146,7 @@ export function CartDrawer() {
                         </div>
 
                         <span className="font-bold text-amarelo">
-                          {formatBRL(multiplyCents(item.unitPriceCents, item.quantity))}
+                          {formatBRL(multiplyCents(unitTotalCents(item), item.quantity))}
                         </span>
                       </div>
                     </div>

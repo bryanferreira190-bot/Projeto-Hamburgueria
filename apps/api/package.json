@@ -17,6 +17,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:importar-fotos": "tsx prisma/importar-fotos-do-seed.ts",
+    "db:seed-adicionais": "tsx prisma/seed-adicionais.ts",
     "db:reset": "prisma migrate reset"
   },
   "dependencies": {

@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { api, type Product } from '../../lib/api';
 import { resolveImageUrl } from '../../lib/imageUrl';
-import { useCart } from '../../stores/cart';
 import { Button, EmptyState, Spinner } from '../../components/ui';
 import { cx } from '../../lib/cx';
+import { ProdutoModal } from './ProdutoModal';
 
 export function MenuPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -163,17 +163,10 @@ function CategoryTab({
 }
 
 function ProductCard({ product }: { product: Product }) {
-  const add = useCart((state) => state.add);
-  const openCart = useCart((state) => state.open);
-  const [justAdded, setJustAdded] = useState(false);
-
-  const handleAdd = () => {
-    add(product);
-    setJustAdded(true);
-    /* Confirmacao visual curta em vez de abrir o carrinho a cada item:
-       interromper a navegacao atrapalha quem esta montando o pedido. */
-    setTimeout(() => setJustAdded(false), 1400);
-  };
+  /* A caixa de escolha e a unica porta de entrada do carrinho: mesmo
+     produto sem adicional nenhum passa por ela, para o cliente sempre
+     ter onde escrever "sem cebola". */
+  const [escolhendo, setEscolhendo] = useState(false);
 
   return (
     <article
@@ -217,14 +210,15 @@ function ProductCard({ product }: { product: Product }) {
 
           <Button
             size="sm"
-            variant={justAdded ? 'amarelo' : 'primario'}
             disabled={!product.isAvailable}
-            onClick={justAdded ? openCart : handleAdd}
+            onClick={() => setEscolhendo(true)}
           >
-            {justAdded ? '✓ No carrinho' : 'Adicionar'}
+            Adicionar
           </Button>
         </div>
       </div>
+
+      {escolhendo && <ProdutoModal produto={product} aoFechar={() => setEscolhendo(false)} />}
     </article>
   );
 }

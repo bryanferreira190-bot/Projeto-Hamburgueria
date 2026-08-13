@@ -3,6 +3,22 @@ import { formatBRL } from '@adventure/shared';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { ImageStorageService } from './image-storage.service';
 
+export interface OptionDto {
+  id: string;
+  name: string;
+  priceCents: number;
+  priceFormatted: string;
+}
+
+export interface OptionGroupDto {
+  id: string;
+  name: string;
+  /** minSelect > 0 torna o grupo obrigatorio. */
+  minSelect: number;
+  maxSelect: number;
+  options: OptionDto[];
+}
+
 export interface ProductDto {
   id: string;
   slug: string;
@@ -13,6 +29,8 @@ export interface ProductDto {
   priceFormatted: string;
   isAvailable: boolean;
   isFeatured: boolean;
+  /** Adicionais que este produto aceita. Vazio quando nao tem nenhum. */
+  optionGroups: OptionGroupDto[];
 }
 
 export interface CategoryDto {
@@ -42,6 +60,29 @@ const CAMPOS_DO_PRODUTO = {
   priceCents: true,
   isAvailable: true,
   isFeatured: true,
+  /* Os adicionais vem junto com o cardapio de proposito: a caixa de
+     escolha abre a partir do cartao ja carregado, e uma segunda
+     requisicao so para listar "bacon, ovo, picles" atrasaria a abertura
+     sem necessidade — sao poucas linhas por produto. */
+  optionGroups: {
+    where: { optionGroup: { isActive: true } },
+    orderBy: { position: 'asc' },
+    select: {
+      optionGroup: {
+        select: {
+          id: true,
+          name: true,
+          minSelect: true,
+          maxSelect: true,
+          options: {
+            where: { isActive: true },
+            orderBy: { position: 'asc' },
+            select: { id: true, name: true, priceCents: true },
+          },
+        },
+      },
+    },
+  },
 } as const;
 
 interface ProductRow {
@@ -55,6 +96,15 @@ interface ProductRow {
   priceCents: number;
   isAvailable: boolean;
   isFeatured: boolean;
+  optionGroups: {
+    optionGroup: {
+      id: string;
+      name: string;
+      minSelect: number;
+      maxSelect: number;
+      options: { id: string; name: string; priceCents: number }[];
+    };
+  }[];
 }
 
 @Injectable()
@@ -129,6 +179,18 @@ export class CatalogService {
       priceFormatted: formatBRL(product.priceCents),
       isAvailable: product.isAvailable,
       isFeatured: product.isFeatured,
+      optionGroups: product.optionGroups.map(({ optionGroup }) => ({
+        id: optionGroup.id,
+        name: optionGroup.name,
+        minSelect: optionGroup.minSelect,
+        maxSelect: optionGroup.maxSelect,
+        options: optionGroup.options.map((option) => ({
+          id: option.id,
+          name: option.name,
+          priceCents: option.priceCents,
+          priceFormatted: formatBRL(option.priceCents),
+        })),
+      })),
     };
   }
 }

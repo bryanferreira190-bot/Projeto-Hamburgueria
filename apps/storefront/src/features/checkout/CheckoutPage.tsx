@@ -110,7 +110,7 @@ export function CheckoutPage() {
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
-        optionIds: [],
+        optionIds: item.options.map((option) => option.id),
         ...(item.notes ? { notes: item.notes } : {}),
       })),
       paymentMethod,

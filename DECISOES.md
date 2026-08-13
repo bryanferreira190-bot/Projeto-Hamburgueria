@@ -5,6 +5,56 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-13 — Adicionais do lanche: schema já existia, faltava expor e popular
+
+**O que mudou.** Clicar em "Adicionar" no cardápio agora abre uma caixa com
+os adicionais do lanche (Bacon +R$7, Ovo +R$4, Onions +R$11, Hambúrguer
++R$11, Picles +R$4), um campo de observações e o seletor de quantidade.
+
+**Quase nada de backend foi escrito.** `OptionGroup`, `Option`,
+`ProductOptionGroup`, `OrderItem.optionsPriceCents`, `OrderItemOption` e
+`OrderItem.notes` já existiam no schema; `orderItemInputSchema` já aceitava
+`optionIds` e `notes`; e `order-pricing.service.ts` já resolvia os
+adicionais, somava o preço e **já validava** que cada opção pertence a um
+grupo do próprio produto, respeitando min/maxSelect. Faltavam só duas
+coisas: o catálogo não devolvia os grupos, e as tabelas estavam vazias.
+
+**Adicionais vêm junto com o cardápio, não numa segunda requisição.** A
+caixa abre a partir de um cartão já carregado; buscar "bacon, ovo, picles"
+num `GET` separado atrasaria a abertura sem ganho — são poucas linhas por
+produto.
+
+**A caixa abre mesmo para produto sem nenhum adicional** (bebidas, por
+exemplo). Ela deixou de ser "escolha os extras" e virou a única porta de
+entrada do carrinho, porque o campo de observações vale para qualquer
+item — é onde o cliente escreve "sem cebola".
+
+**Linha do carrinho agora tem assinatura.** Antes duas unidades do mesmo
+produto sempre se fundiam numa linha só. Com adicionais isso apagaria a
+diferença entre "Classic com bacon" e "Classic sem bacon" — viraria
+"Classic x2" e a cozinha erraria o pedido. A fusão agora exige mesmo
+produto **e** mesmos adicionais **e** mesma observação (`assinatura()` em
+`stores/cart.ts`).
+
+**Carrinho salvo antes disso precisou de migração.** O `persist` do zustand
+subiu para `version: 1` com um `migrate` que injeta `options: []` nos itens
+antigos. Sem isso, quem tivesse item no carrinho abriria a loja e veria
+tela branca — `options.map()` em `undefined` no primeiro `subtotalCents()`.
+
+**Quais produtos recebem adicionais.** Burguers Clássicos, Burguers
+Especiais e Combos (20 produtos). Porções e Bebidas ficaram de fora — ovo
+em refrigerante não faz sentido. A lista está em
+`CATEGORIAS_COM_ADICIONAIS`, no topo de `prisma/seed-adicionais.ts`, junto
+com os preços; o script é idempotente e serve para reajustar valores
+depois (`npm run db:seed-adicionais`).
+
+**Preço continua sendo do servidor.** O que a caixa mostra é só exibição;
+no fechamento o `price()` recalcula tudo lendo o banco. Verificado na
+prática: mandar o id de um adicional de outro produto, um id inventado, ou
+mais opções que o `maxSelect` — os três são recusados.
+
+---
+
 ## 2026-08-13 — Cadastro de produto: slug gerado no servidor, sem endpoint novo de categorias
 
 **O que mudou.** `POST /admin/products` cadastra um produto novo — antes só

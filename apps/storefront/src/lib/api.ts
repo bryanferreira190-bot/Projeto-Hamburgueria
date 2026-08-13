@@ -65,6 +65,22 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 /* ---------------- Tipos das respostas ---------------- */
 
+export interface Option {
+  id: string;
+  name: string;
+  priceCents: number;
+  priceFormatted: string;
+}
+
+export interface OptionGroup {
+  id: string;
+  name: string;
+  /** minSelect > 0 torna o grupo obrigatorio. */
+  minSelect: number;
+  maxSelect: number;
+  options: Option[];
+}
+
 export interface Product {
   id: string;
   slug: string;
@@ -75,6 +91,8 @@ export interface Product {
   priceFormatted: string;
   isAvailable: boolean;
   isFeatured: boolean;
+  /** Adicionais aceitos. Vazio quando o produto nao tem nenhum. */
+  optionGroups: OptionGroup[];
 }
 
 export interface Category {
