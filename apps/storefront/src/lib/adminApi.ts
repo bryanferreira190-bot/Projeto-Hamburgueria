@@ -144,6 +144,14 @@ export const adminApi = {
     dados: { name?: string; description?: string; priceCents?: number; isAvailable?: boolean },
   ) => requisitar<ProdutoEditavel>(`/admin/products/${id}`, { method: 'PATCH', body: dados }),
 
+  criarProduto: (dados: {
+    categoryId: string;
+    name: string;
+    description?: string;
+    priceCents: number;
+    isAvailable?: boolean;
+  }) => requisitar<ProdutoEditavel>('/admin/products', { method: 'POST', body: dados }),
+
   enviarFoto: (id: string, arquivo: File) => {
     const formData = new FormData();
     formData.append('file', arquivo);

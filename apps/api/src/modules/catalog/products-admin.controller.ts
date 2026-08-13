@@ -14,7 +14,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   AdminRole,
   PRODUCT_IMAGE,
+  createProductSchema,
   updateProductSchema,
+  type CreateProductInput,
   type UpdateProductInput,
 } from '@adventure/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -47,6 +49,15 @@ export class ProductsAdminController {
   @Get('image-rules')
   imageRules() {
     return this.products.getImageRules();
+  }
+
+  @Post()
+  create(
+    @Body(new ZodValidationPipe(createProductSchema)) body: CreateProductInput,
+    @CurrentAdmin('storeId') storeId: string,
+    @CurrentAdmin('sub') adminId: string,
+  ) {
+    return this.products.create(storeId, body, adminId);
   }
 
   @Patch(':id')

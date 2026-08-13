@@ -8,6 +8,7 @@ import { resolveImageUrl } from '../../lib/imageUrl';
 import { Button, EmptyState, Spinner } from '../../components/ui';
 import { cx } from '../../lib/cx';
 import { AdminLogin } from './AdminLogin';
+import { NovoProdutoModal } from './NovoProdutoModal';
 import { ProdutoEditor, type ProdutoDoCardapio } from './ProdutoEditor';
 
 export function AdminPage() {
@@ -41,6 +42,7 @@ export function AdminPage() {
 function GerenciarCardapio({ nomeDoAdmin, aoSair }: { nomeDoAdmin: string; aoSair: () => void }) {
   const queryClient = useQueryClient();
   const [editando, setEditando] = useState<ProdutoDoCardapio | null>(null);
+  const [criando, setCriando] = useState(false);
   const [salvo, setSalvo] = useState<string | null>(null);
 
   const {
@@ -60,9 +62,12 @@ function GerenciarCardapio({ nomeDoAdmin, aoSair }: { nomeDoAdmin: string; aoSai
     },
   });
 
-  const aposSalvar = (nome: string) => {
-    setEditando(null);
-    setSalvo(nome);
+  /* Usado tanto ao editar quanto ao cadastrar um produto novo — quem
+     chama fecha a propria caixa (edicao ou o modal de cadastro) antes e
+     passa a frase pronta, ja que "atualizado" e "cadastrado" pedem
+     verbos diferentes. */
+  const aposSalvar = (mensagem: string) => {
+    setSalvo(mensagem);
     /* O cardapio publico tambem precisa refletir a mudanca na hora. */
     void queryClient.invalidateQueries({ queryKey: ['admin-produtos'] });
     void queryClient.invalidateQueries({ queryKey: ['menu'] });
@@ -100,6 +105,9 @@ function GerenciarCardapio({ nomeDoAdmin, aoSair }: { nomeDoAdmin: string; aoSai
         </div>
 
         <div className="flex gap-2">
+          <Button variant="contorno" size="sm" onClick={() => setCriando(true)}>
+            + Novo produto
+          </Button>
           <Link to="/">
             <Button variant="fantasma" size="sm">
               Ver loja
@@ -116,12 +124,23 @@ function GerenciarCardapio({ nomeDoAdmin, aoSair }: { nomeDoAdmin: string; aoSai
         </div>
       </header>
 
+      {criando && (
+        <NovoProdutoModal
+          categorias={categorias.map((c) => ({ id: c.id, name: c.name }))}
+          aoSalvar={(nome) => {
+            setCriando(false);
+            aposSalvar(`"${nome}" cadastrado. Adicione uma foto editando o produto.`);
+          }}
+          aoFechar={() => setCriando(false)}
+        />
+      )}
+
       {salvo && (
         <p
           role="status"
           className="mb-5 rounded-xl border border-verde/40 bg-verde/10 px-4 py-3 text-sm text-verde"
         >
-          ✓ "{salvo}" atualizado.
+          ✓ {salvo}
         </p>
       )}
 
@@ -149,7 +168,10 @@ function GerenciarCardapio({ nomeDoAdmin, aoSair }: { nomeDoAdmin: string; aoSai
                     <div className="p-5">
                       <ProdutoEditor
                         produto={editando}
-                        aoSalvar={() => aposSalvar(editando.name)}
+                        aoSalvar={() => {
+                          setEditando(null);
+                          aposSalvar(`"${editando.name}" atualizado.`);
+                        }}
                         aoFechar={() => setEditando(null)}
                       />
                     </div>

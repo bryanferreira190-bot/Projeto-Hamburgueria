@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -132,6 +133,69 @@ export function Badge({
     >
       {children}
     </span>
+  );
+}
+
+/* ---------------- Caixa modal ---------------- */
+
+/**
+ * Caixa central com fundo escurecido, para acoes que interrompem o fluxo
+ * (cadastrar algo novo, confirmar uma exclusao). Diferente do CartDrawer
+ * — aquele desliza da lateral porque e uma area que fica aberta enquanto
+ * a pessoa navega; esta aqui e uma pergunta pontual que fecha sozinha.
+ */
+export function Modal({
+  titulo,
+  aoFechar,
+  children,
+}: {
+  titulo: string;
+  aoFechar: () => void;
+  children: ReactNode;
+}) {
+  /* Esc fecha e trava a rolagem do fundo, igual ao carrinho. */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') aoFechar();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [aoFechar]);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <div
+        onClick={aoFechar}
+        className="fixed inset-0 bg-preto/70 backdrop-blur-sm"
+        aria-hidden
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-borda bg-preto-2 p-6 shadow-[0_20px_60px_rgba(0,0,0,.6)]"
+      >
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h2 className="titulo-display text-xl">{titulo}</h2>
+          <button
+            type="button"
+            onClick={aoFechar}
+            aria-label="Fechar"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-cinza transition-colors hover:bg-carvao hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        {children}
+      </div>
+    </div>
   );
 }
 

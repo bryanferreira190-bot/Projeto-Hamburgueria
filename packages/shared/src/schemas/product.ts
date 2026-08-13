@@ -28,6 +28,28 @@ export const updateProductSchema = z
   });
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
+/**
+ * CRIACAO DE PRODUTO PELO PAINEL
+ *
+ * Sem slug aqui de proposito: ele e gerado no servidor a partir do nome,
+ * a mesma regra que o seed inicial usa. Pedir para a pessoa digitar um
+ * slug so abriria espaco para caracteres invalidos ou duplicados.
+ */
+export const createProductSchema = z.object({
+  categoryId: z.string().uuid('Selecione uma categoria'),
+  name: z.string().trim().min(2, 'O nome precisa de ao menos 2 caracteres').max(160),
+  description: z
+    .string()
+    .trim()
+    .max(600, 'A descricao passou de 600 caracteres')
+    .optional(),
+  priceCents: centsSchema
+    .min(1, 'O preco precisa ser maior que zero')
+    .max(100_000_00, 'Preco acima do limite'),
+  isAvailable: z.boolean().optional(),
+});
+export type CreateProductInput = z.infer<typeof createProductSchema>;
+
 /* ---------------- Regras da foto ---------------- */
 
 /**

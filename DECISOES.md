@@ -5,6 +5,45 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-13 — Cadastro de produto: slug gerado no servidor, sem endpoint novo de categorias
+
+**O que mudou.** `POST /admin/products` cadastra um produto novo — antes só
+existia edição (`PATCH`). No painel da loja (`loja.impactdev.site/admin`),
+um botão "+ Novo produto" ao lado de "Ver loja" abre uma caixa com
+categoria, nome, descrição, preço e disponibilidade.
+
+**Sem campo de slug no formulário.** Ele é gerado no servidor a partir do
+nome (`gerarSlugUnico` em `products-admin.service.ts`), removendo acentos
+via `normalize('NFD')` + remoção da faixa Unicode das marcas combinantes
+(U+0300 a U+036F). Colisão de nome ("Combo Especial" cadastrado duas vezes)
+resolve sozinha com sufixo `-2`, `-3`... Pedir para a pessoa digitar um
+slug só abriria espaço para caractere inválido ou duplicado — o mesmo
+raciocínio de não editar o slug ao renomear um produto (ver `update()`,
+comentário já existente no arquivo).
+
+**Sem endpoint novo para listar categorias.** O formulário usa a mesma
+lista que `GET /admin/products` já devolve (cada categoria já vem com
+`id` e `name`) — criar `GET /admin/categories` só para preencher um
+`<select>` seria estado duplicado sem necessidade.
+
+**`storeId` vem do token, não de uma query no banco.** `@CurrentAdmin
+('storeId')` lê direto do JWT (o payload já carrega o campo, usado em
+outros pontos da auth) em vez de `prisma.store.findFirst()` como
+`orders.service.ts` faz — aqui já se sabe qual loja é, então a query
+extra não teria propósito.
+
+**Posição do produto novo.** Entra no fim da própria categoria (maior
+`position` da categoria + 1), não no fim da lista inteira — é onde a
+pessoa que acabou de cadastrar espera encontrá-lo.
+
+**Sem foto no cadastro.** O produto nasce sem imagem (cai no ícone padrão
+do cardápio) e disponível por padrão; a foto se envia depois pelo mesmo
+botão "Editar" que já existe. Enfiar upload de arquivo no mesmo modal do
+cadastro deixaria o formulário mais complexo sem ganho — quem cadastra
+um produto no capricho normalmente ainda não tem a foto em mãos.
+
+---
+
 ## 2026-08-07 — A URL da foto é calculada na leitura, não guardada em coluna
 
 **O que mudou.** O `imageUrl` que o cardápio devolve deixou de ser um campo
