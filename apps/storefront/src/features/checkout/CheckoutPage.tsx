@@ -1,7 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { PAYMENT_METHOD_LABELS, formatBRL, type PaymentMethod } from '@adventure/shared';
+import {
+  PAYMENT_METHOD_LABELS,
+  formatBRL,
+  isOnlinePayment,
+  type PaymentMethod,
+} from '@adventure/shared';
 import { ApiError, api } from '../../lib/api';
 import { useCart } from '../../stores/cart';
 import { Button, EmptyState, Field, Input, Textarea } from '../../components/ui';
@@ -23,6 +28,7 @@ export function CheckoutPage() {
   const [type, setType] = useState<OrderType>('DELIVERY');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [street, setStreet] = useState('');
   const [number, setNumber] = useState('');
@@ -83,8 +89,11 @@ export function CheckoutPage() {
       if (district.trim().length < 2) list.push('bairro');
     }
     if (paymentMethod === 'CASH_ON_DELIVERY' && !changeFor.trim()) list.push('troco');
+    /* PIX exige e-mail do pagador para o Mercado Pago gerar a cobranca —
+       checagem leve aqui, a validacao de verdade e do servidor. */
+    if (isOnlinePayment(paymentMethod) && !email.trim().includes('@')) list.push('e-mail');
     return list;
-  }, [name, phone, type, zipCode, street, number, district, paymentMethod, changeFor]);
+  }, [name, phone, email, type, zipCode, street, number, district, paymentMethod, changeFor]);
 
   if (items.length === 0) {
     return (
@@ -106,7 +115,11 @@ export function CheckoutPage() {
 
     const payload = {
       type,
-      customer: { name: name.trim(), phone: phone.replace(/\D/g, '') },
+      customer: {
+        name: name.trim(),
+        phone: phone.replace(/\D/g, ''),
+        ...(isOnlinePayment(paymentMethod) ? { email: email.trim() } : {}),
+      },
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -190,6 +203,27 @@ export function CheckoutPage() {
                 autoComplete="tel"
               />
             </Field>
+
+            {isOnlinePayment(paymentMethod) && (
+              <Field
+                label="E-mail"
+                required
+                hint="Necessário para gerar a cobrança PIX"
+                error={
+                  email.trim().length > 0 && !email.trim().includes('@')
+                    ? 'Informe um e-mail válido'
+                    : undefined
+                }
+              >
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="voce@email.com"
+                  autoComplete="email"
+                />
+              </Field>
+            )}
           </div>
         </Section>
 

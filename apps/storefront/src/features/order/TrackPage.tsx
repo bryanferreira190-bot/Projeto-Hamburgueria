@@ -77,9 +77,12 @@ function OrderDetail({ number }: { number: string }) {
     queryKey: ['order', number],
     queryFn: () => api.trackOrder(number),
     /* Enquanto o pedido esta ativo, revalida sozinho para o cliente ver o
-       status mudar sem precisar atualizar a pagina. */
+       status mudar sem precisar atualizar a pagina. Mais frequente durante
+       "aguardando pagamento": e o momento em que a pessoa esta com o app
+       do banco aberto, olhando a tela esperando o PIX confirmar. */
     refetchInterval: (query) => {
       const status = query.state.data?.status;
+      if (status === 'PENDING_PAYMENT') return 5_000;
       const finalizado = status === 'DELIVERED' || status === 'COMPLETED' || status === 'CANCELED';
       return finalizado ? false : 20_000;
     },
@@ -125,6 +128,10 @@ function OrderDetail({ number }: { number: string }) {
           </Badge>
         </div>
       </div>
+
+      {order.status === 'PENDING_PAYMENT' && order.payment?.pixCopyPaste && (
+        <PixBox payment={order.payment} />
+      )}
 
       {isCanceled ? (
         <div className="mb-6 rounded-2xl border border-vermelho/40 bg-vermelho/8 p-5 text-center">
@@ -280,5 +287,70 @@ function Line({ label, value, accent }: { label: string; value: string; accent?:
       <dt className="text-cinza">{label}</dt>
       <dd className={accent ? 'text-verde' : 'text-cinza'}>{value}</dd>
     </div>
+  );
+}
+
+/**
+ * QR Code + "copia e cola" do PIX. A pagina inteira ja revalida sozinha a
+ * cada 5s enquanto o pedido esta "aguardando pagamento" (ver refetchInterval
+ * acima) — assim que o Mercado Pago confirmar, esta caixa some na proxima
+ * atualizacao e a esteira de status normal toma o lugar dela.
+ */
+function PixBox({
+  payment,
+}: {
+  payment: { pixQrCode: string | null; pixCopyPaste: string | null; pixExpiresAt: string | null };
+}) {
+  const [copiado, setCopiado] = useState(false);
+
+  const copiar = async () => {
+    if (!payment.pixCopyPaste) return;
+    try {
+      await navigator.clipboard.writeText(payment.pixCopyPaste);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      /* Navegador sem permissao de clipboard (raro, mas acontece em
+         alguns webviews) — a pessoa ainda pode selecionar e copiar
+         manualmente o texto exibido, entao nao ha nada mais a fazer. */
+    }
+  };
+
+  return (
+    <section className="mb-6 rounded-2xl border border-amarelo/40 bg-amarelo/5 p-5 text-center">
+      <h2 className="titulo-display mb-1 text-lg">
+        Pague com <span className="text-amarelo">PIX</span> para confirmar
+      </h2>
+      <p className="mb-4 text-sm text-cinza">
+        Escaneie o QR Code no app do seu banco, ou use o código copia e cola.
+      </p>
+
+      {payment.pixQrCode && (
+        <img
+          src={`data:image/png;base64,${payment.pixQrCode}`}
+          alt="QR Code do PIX"
+          className="mx-auto mb-4 size-52 rounded-xl border border-borda bg-white p-2"
+        />
+      )}
+
+      <div className="mb-3 break-all rounded-xl border border-borda bg-preto-3 p-3 text-left text-xs text-cinza">
+        {payment.pixCopyPaste}
+      </div>
+
+      <Button size="sm" onClick={() => void copiar()} variant={copiado ? 'amarelo' : 'primario'}>
+        {copiado ? '✓ Código copiado' : 'Copiar código PIX'}
+      </Button>
+
+      {payment.pixExpiresAt && (
+        <p className="mt-3 text-xs text-cinza-2">
+          Se não for pago até{' '}
+          {new Date(payment.pixExpiresAt).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+          , o pedido é cancelado automaticamente.
+        </p>
+      )}
+    </section>
   );
 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { OrderStatus, OrderType, PaymentMethod } from '../domain/enums.js';
-import { centsSchema, uuidSchema } from './common.js';
+import { OrderStatus, OrderType, PaymentMethod, isOnlinePayment } from '../domain/enums.js';
+import { centsSchema, emailSchema, uuidSchema } from './common.js';
 import { addressSchema } from './customer.js';
 import { phoneSchema } from './common.js';
 
@@ -28,6 +28,9 @@ export type OrderItemInput = z.infer<typeof orderItemInputSchema>;
 export const orderCustomerSchema = z.object({
   name: z.string().trim().min(2, 'Informe seu nome').max(120),
   phone: phoneSchema,
+  /* So exigido para pagamento online — ver o .refine() em createOrderSchema.
+     O Mercado Pago recusa criar a cobranca PIX sem um e-mail do pagador. */
+  email: emailSchema.optional(),
 });
 export type OrderCustomerInput = z.infer<typeof orderCustomerSchema>;
 
@@ -59,7 +62,11 @@ export const createOrderSchema = z
     (order) =>
       order.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY || order.changeForCents !== undefined,
     { message: 'Informe para quanto precisa de troco', path: ['changeForCents'] },
-  );
+  )
+  .refine((order) => !isOnlinePayment(order.paymentMethod) || Boolean(order.customer.email), {
+    message: 'Informe seu e-mail para gerar a cobranca',
+    path: ['customer', 'email'],
+  });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
 export const updateOrderStatusSchema = z.object({

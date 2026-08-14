@@ -149,6 +149,12 @@ export interface Order {
   totalCents: number;
   totalFormatted: string;
   paymentMethod: string;
+  payment: {
+    status: 'PENDING' | 'AUTHORIZED' | 'PAID' | 'REFUNDED' | 'FAILED' | 'CANCELED';
+    pixQrCode: string | null;
+    pixCopyPaste: string | null;
+    pixExpiresAt: string | null;
+  } | null;
   address: {
     street: string | null;
     number: string | null;

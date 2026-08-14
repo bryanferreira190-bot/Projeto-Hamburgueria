@@ -8,6 +8,7 @@ import {
 import {
   OrderStatus,
   OrderType,
+  PaymentMethod,
   assertTransition,
   canCustomerCancel,
   formatBRL,
@@ -19,6 +20,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { DeliveryService } from '../delivery/delivery.service';
+import { PaymentsService } from '../payments/payments.service';
 import { StoreService } from '../store/store.service';
 import { OrderPricingService } from './order-pricing.service';
 
@@ -31,6 +33,7 @@ export class OrdersService {
     private readonly pricing: OrderPricingService,
     private readonly store: StoreService,
     private readonly delivery: DeliveryService,
+    private readonly payments: PaymentsService,
   ) {}
 
   /**
@@ -99,11 +102,16 @@ export class OrdersService {
 
       const customer = await tx.customer.upsert({
         where: { storeId_phone: { storeId: store.id, phone: input.customer.phone } },
-        update: { name: input.customer.name, lastOrderAt: new Date() },
+        update: {
+          name: input.customer.name,
+          lastOrderAt: new Date(),
+          ...(input.customer.email ? { email: input.customer.email } : {}),
+        },
         create: {
           storeId: store.id,
           phone: input.customer.phone,
           name: input.customer.name,
+          email: input.customer.email ?? null,
           lastOrderAt: new Date(),
         },
       });
@@ -183,6 +191,37 @@ export class OrdersService {
     });
 
     this.logger.log(`Pedido ${order.number} criado — ${formatBRL(order.totalCents)}`);
+
+    /**
+     * A cobranca PIX e criada FORA da transacao acima de proposito: e uma
+     * chamada de rede para o Mercado Pago, e segurar uma transacao de
+     * banco aberta enquanto se espera uma resposta externa arrisca
+     * travar linhas por mais tempo que o necessario.
+     *
+     * Se o Mercado Pago falhar aqui, o pedido ja existe mas ninguem
+     * consegue pagar — pior do que nao ter pedido nenhum. Por isso ele e
+     * cancelado explicitamente e o cliente recebe um erro claro, em vez
+     * de ficar parado para sempre em "aguardando pagamento".
+     */
+    if (input.paymentMethod === PaymentMethod.PIX) {
+      try {
+        await this.payments.createPixForOrder({
+          id: order.id,
+          number: order.number,
+          totalCents: order.totalCents,
+          /* O "!" e seguro: createOrderSchema exige email quando o
+             pagamento e online, e essa validacao ja rodou no controller. */
+          payerEmail: input.customer.email!,
+          payerFirstName: input.customer.name.split(' ')[0],
+        });
+      } catch (error) {
+        await this.updateStatus(order.id, OrderStatus.CANCELED, {
+          reason: 'Falha ao gerar cobranca PIX',
+        });
+        throw error;
+      }
+    }
+
     return this.findById(order.id);
   }
 
@@ -193,6 +232,9 @@ export class OrdersService {
         items: { include: { options: true } },
         customer: { select: { name: true, phone: true } },
         statusHistory: { orderBy: { createdAt: 'asc' } },
+        /* So o pagamento mais recente interessa aqui — nao ha reemissao
+           de PIX hoje, entao um pedido tem no maximo um Payment. */
+        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
 
@@ -211,6 +253,9 @@ export class OrdersService {
         items: { include: { options: true } },
         customer: { select: { name: true, phone: true } },
         statusHistory: { orderBy: { createdAt: 'asc' } },
+        /* So o pagamento mais recente interessa aqui — nao ha reemissao
+           de PIX hoje, entao um pedido tem no maximo um Payment. */
+        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
 
@@ -251,6 +296,9 @@ export class OrdersService {
         items: { include: { options: true } },
         customer: { select: { name: true, phone: true } },
         statusHistory: { orderBy: { createdAt: 'asc' } },
+        /* So o pagamento mais recente interessa aqui — nao ha reemissao
+           de PIX hoje, entao um pedido tem no maximo um Payment. */
+        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
 
@@ -384,6 +432,7 @@ type OrderWithRelations = Prisma.OrderGetPayload<{
     items: { include: { options: true } };
     customer: { select: { name: true; phone: true } };
     statusHistory: true;
+    payments: true;
   };
 }>;
 
@@ -447,6 +496,17 @@ function toOrderDto(order: OrderWithRelations) {
 
     paymentMethod: order.paymentMethod,
     changeForCents: order.changeForCents,
+    payment: order.payments[0]
+      ? {
+          status: order.payments[0].status,
+          /* So faz sentido mostrar o QR de um PIX ainda pendente — depois
+             de pago ou cancelado ele nao serve mais para nada. */
+          pixQrCode: order.payments[0].status === 'PENDING' ? order.payments[0].pixQrCode : null,
+          pixCopyPaste:
+            order.payments[0].status === 'PENDING' ? order.payments[0].pixCopyPaste : null,
+          pixExpiresAt: order.payments[0].pixExpiresAt,
+        }
+      : null,
 
     address:
       order.type === OrderType.DELIVERY

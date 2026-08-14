@@ -5,6 +5,63 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-14 — Pagamento por PIX (Mercado Pago): Orders API, não Payments API
+
+**O que mudou.** `POST /orders` com PIX agora gera cobrança de verdade no
+Mercado Pago e devolve QR Code + copia-e-cola na resposta. `POST
+/payments/webhook` recebe a confirmação e avança o pedido sozinho
+(`PENDING_PAYMENT` → `CONFIRMED`). Se o Mercado Pago falhar ou o PIX for
+recusado/expirar, o pedido é cancelado automaticamente em vez de ficar
+preso para sempre.
+
+**Por que Orders API (`/v1/orders`) e não Payments API (`/v1/payments`).**
+A implementação original usava a Payments API, a mais documentada e a que
+a maioria dos exemplos por aí usa. Ela **não funcionou nesta conta**: toda
+tentativa de criar um PIX — mesmo com credencial de teste genuína e um
+comprador de teste real criado pela própria API do Mercado Pago — voltava
+`401 "Unauthorized use of live credentials"`. Isolado numa chamada crua
+via `fetch`, sem nenhum código nosso no meio, o erro persistiu, descartando
+bug de implementação. A Orders API, com a mesma credencial, funcionou de
+primeira. Conclusão: a aplicação criada no painel do Mercado Pago não tem
+a Payments API habilitada, só a mais nova. Ver o histórico de testes desta
+sessão se a causa raiz precisar ser revisitada.
+
+**`date_of_expiration` no envio dá 400.** A Orders API recusa esse campo
+dentro de `transactions.payments[0]` com
+`"additionalProperties 'date_of_expiration' not allowed"` — contra-intuitivo,
+já que é exatamente o nome do campo que a resposta devolve. No **envio** o
+campo certo é `expiration_time`, em duração ISO 8601 (`"PT30M"`, não uma
+data absoluta). A resposta da API já traz `date_of_expiration` calculado
+(esse sim, é o que o resto do código le).
+
+**`payer.email` é obrigatório para PIX.** `orderCustomerSchema` (em
+`@adventure/shared`) ganhou um campo `email` opcional, exigido só quando
+`isOnlinePayment(paymentMethod)` — checkout de dinheiro/cartão na entrega
+continua sem pedir e-mail.
+
+**`PaymentsModule` não importa `OrdersModule`.** Pedido cria pagamento e
+pagamento confirma pedido formam um ciclo natural entre os dois módulos.
+Em vez de resolver com `forwardRef()`, `PaymentsService` le e escreve o
+pouco que precisa de `Order` (status, número) direto pelo `PrismaService`
+— que já é `@Global()` — mantendo a dependência entre módulos numa via só
+(`Orders` → `Payments`).
+
+**Testado de ponta a ponta antes do deploy**, com o SDK real e credenciais
+de teste: criação de cobrança PIX real com QR Code, gravação do `Payment`
+no banco, e — usando o gatilho de teste do próprio Mercado Pago
+(`payer.first_name: "APRO"`, que aprova o pedido sozinho em sandbox
+alguns segundos depois de criado) — o ciclo completo até
+`PENDING_PAYMENT` → `CONFIRMED` via `handleNotification()`. Tudo criado
+e apagado no banco de produção durante o teste (não há banco de
+staging neste projeto).
+
+**O que falta testar.** O webhook HTTP real do Mercado Pago batendo no
+endpoint publicado (`/api/v1/payments/webhook`) com assinatura de
+verdade — isso só é possível com a URL publicamente acessível, ou seja,
+depois do deploy.
+
+---
+
 ## 2026-08-13 — Adicionais do lanche: schema já existia, faltava expor e popular
 
 **O que mudou.** Clicar em "Adicionar" no cardápio agora abre uma caixa com
