@@ -121,20 +121,39 @@ export class PaymentsService {
        como um todo — e a que o cliente realmente ve no seu app do banco. */
     const pixExpiresAt = transacao?.date_of_expiration ? new Date(transacao.date_of_expiration) : null;
 
-    await this.prisma.payment.create({
-      data: {
+    /**
+     * A PARTIR DAQUI A COBRANCA JA EXISTE NO MERCADO PAGO.
+     *
+     * Se a gravacao falhar, fica uma cobranca que o cliente consegue
+     * pagar e que nos nao sabemos que existe: o webhook chegaria, nao
+     * acharia Payment nenhum e ignoraria — dinheiro entrando sem pedido
+     * correspondente. Por isso a escrita e tentada mais de uma vez antes
+     * de desistir (falha de conexao com o banco costuma ser passageira),
+     * e o fracasso final e registrado com o id da cobranca, para dar
+     * para conciliar na mao.
+     */
+    try {
+      await this.gravarPagamentoComRetentativa({
         orderId: order.id,
-        provider: 'mercadopago',
-        method: PaymentMethod.PIX,
         status: mapearStatus(resposta.status),
         amountCents: order.totalCents,
         externalId: String(resposta.id),
-        idempotencyKey: `pix-${order.id}`,
-        pixQrCode: dados.qr_code_base64 ?? null,
-        pixCopyPaste: dados.qr_code,
+        qrCodeBase64: dados.qr_code_base64 ?? null,
+        copiaECola: dados.qr_code,
         pixExpiresAt,
-      },
-    });
+      });
+    } catch (error) {
+      this.logger.error(
+        `COBRANCA ORFA: PIX ${resposta.id} criado no Mercado Pago para o pedido ` +
+          `${order.number} (${order.id}), mas nao foi possivel gravar o Payment. ` +
+          `Se o cliente pagar, o valor entra sem pedido correspondente — ` +
+          `cancele a cobranca no painel do Mercado Pago.`,
+        error as Error,
+      );
+      throw new BadRequestException(
+        'Nao foi possivel gerar a cobranca PIX agora. Tente novamente em instantes.',
+      );
+    }
 
     this.logger.log(`Cobranca PIX ${resposta.id} criada para o pedido ${order.number}`);
 
@@ -144,6 +163,58 @@ export class PaymentsService {
       pixCopyPaste: dados.qr_code,
       pixExpiresAt,
     };
+  }
+
+  /**
+   * Grava o Payment, insistindo em caso de falha passageira.
+   *
+   * O banco (Neon) usa conexao direta e hiberna quando fica ocioso; a
+   * primeira escrita depois de uma pausa pode falhar com erro de
+   * conexao. Como esta gravacao acontece logo apos uma chamada de rede
+   * de alguns segundos ao Mercado Pago, ela e justamente a mais exposta
+   * a isso — e a que menos pode se dar ao luxo de falhar, porque a
+   * cobranca ja foi criada la.
+   */
+  private async gravarPagamentoComRetentativa(dados: {
+    orderId: string;
+    status: PaymentStatus;
+    amountCents: number;
+    externalId: string;
+    qrCodeBase64: string | null;
+    copiaECola: string;
+    pixExpiresAt: Date | null;
+  }): Promise<void> {
+    const TENTATIVAS = 3;
+
+    for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+      try {
+        await this.prisma.payment.create({
+          data: {
+            orderId: dados.orderId,
+            provider: 'mercadopago',
+            method: PaymentMethod.PIX,
+            status: dados.status,
+            amountCents: dados.amountCents,
+            externalId: dados.externalId,
+            idempotencyKey: `pix-${dados.orderId}`,
+            pixQrCode: dados.qrCodeBase64,
+            pixCopyPaste: dados.copiaECola,
+            pixExpiresAt: dados.pixExpiresAt,
+          },
+        });
+        return;
+      } catch (error) {
+        if (tentativa === TENTATIVAS) throw error;
+
+        this.logger.warn(
+          `Falha ao gravar Payment do pedido ${dados.orderId} ` +
+            `(tentativa ${tentativa}/${TENTATIVAS}), tentando de novo: ${(error as Error).message}`,
+        );
+        /* Espera curta e crescente: da tempo de a conexao se restabelecer
+           sem segurar a resposta ao cliente por muito tempo. */
+        await new Promise((resolve) => setTimeout(resolve, 200 * tentativa));
+      }
+    }
   }
 
   /**
