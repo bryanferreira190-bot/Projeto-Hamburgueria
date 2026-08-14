@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { OrderStatus, OrderType, PaymentMethod, isOnlinePayment } from '../domain/enums.js';
+import {
+  OrderStatus,
+  OrderType,
+  PaymentMethod,
+  isCardPayment,
+  isOnlinePayment,
+} from '../domain/enums.js';
 import { centsSchema, emailSchema, uuidSchema } from './common.js';
 import { addressSchema } from './customer.js';
 import { phoneSchema } from './common.js';
@@ -34,6 +40,28 @@ export const orderCustomerSchema = z.object({
 });
 export type OrderCustomerInput = z.infer<typeof orderCustomerSchema>;
 
+/**
+ * DADOS DO CARTAO — SO O QUE PODE TRAFEGAR
+ *
+ * Numero, CVV e validade NUNCA passam por aqui nem tocam o nosso
+ * servidor: o navegador os envia direto ao Mercado Pago, que devolve um
+ * token de uso unico. E esse token que chega na API. Assim o sistema
+ * fica fora do escopo mais pesado de PCI-DSS, e um vazamento nosso nao
+ * expoe cartao de ninguem.
+ */
+export const cardPaymentSchema = z.object({
+  /** Token de uso unico gerado pelo SDK do Mercado Pago no navegador. */
+  token: z.string().trim().min(1, 'Token do cartao ausente'),
+  /** Bandeira detectada pelo proprio SDK (ex.: "master", "visa", "elo"). */
+  paymentMethodId: z.string().trim().min(1, 'Bandeira do cartao ausente'),
+  installments: z
+    .number()
+    .int()
+    .min(1, 'Parcelamento invalido')
+    .max(12, 'Parcelamento acima do limite'),
+});
+export type CardPaymentInput = z.infer<typeof cardPaymentSchema>;
+
 const baseOrderSchema = z.object({
   customer: orderCustomerSchema,
   items: z.array(orderItemInputSchema).min(1, 'Adicione ao menos um item'),
@@ -42,6 +70,8 @@ const baseOrderSchema = z.object({
   notes: z.string().trim().max(300).optional(),
   /* Quanto o cliente vai pagar em dinheiro, para o entregador levar troco. */
   changeForCents: centsSchema.optional(),
+  /* Exigido quando o pagamento e por cartao — ver o refine mais abaixo. */
+  card: cardPaymentSchema.optional(),
 });
 
 /**
@@ -66,6 +96,10 @@ export const createOrderSchema = z
   .refine((order) => !isOnlinePayment(order.paymentMethod) || Boolean(order.customer.email), {
     message: 'Informe seu e-mail para gerar a cobranca',
     path: ['customer', 'email'],
+  })
+  .refine((order) => !isCardPayment(order.paymentMethod) || order.card !== undefined, {
+    message: 'Preencha os dados do cartao',
+    path: ['card'],
   });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 

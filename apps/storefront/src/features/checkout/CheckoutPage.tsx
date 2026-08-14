@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import {
   PAYMENT_METHOD_LABELS,
   formatBRL,
+  isCardPayment,
   isOnlinePayment,
   type PaymentMethod,
 } from '@adventure/shared';
@@ -11,6 +12,8 @@ import { ApiError, api } from '../../lib/api';
 import { useCart } from '../../stores/cart';
 import { Button, EmptyState, Field, Input, Textarea } from '../../components/ui';
 import { cx } from '../../lib/cx';
+import { cartaoDisponivel } from '../../lib/mercadopago';
+import { CamposDoCartao, type DadosDoCartao } from './CamposDoCartao';
 
 type OrderType = 'DELIVERY' | 'PICKUP';
 
@@ -41,6 +44,8 @@ export function CheckoutPage() {
   const [couponCode, setCouponCode] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [dadosDoCartao, setDadosDoCartao] = useState<DadosDoCartao | null>(null);
+  const [tokenizando, setTokenizando] = useState(false);
 
   /**
    * Chave gerada uma vez por sessao de checkout. Enviada em todas as
@@ -92,8 +97,24 @@ export function CheckoutPage() {
     /* PIX exige e-mail do pagador para o Mercado Pago gerar a cobranca —
        checagem leve aqui, a validacao de verdade e do servidor. */
     if (isOnlinePayment(paymentMethod) && !email.trim().includes('@')) list.push('e-mail');
+    /* Os campos do cartao ficam em iframes do Mercado Pago e nao dao para
+       validar daqui; o SDK recusa a tokenizacao se estiverem incompletos.
+       So checamos o que e nosso. */
+    if (isCardPayment(paymentMethod) && !dadosDoCartao) list.push('dados do cartão');
     return list;
-  }, [name, phone, email, type, zipCode, street, number, district, paymentMethod, changeFor]);
+  }, [
+    name,
+    phone,
+    email,
+    type,
+    zipCode,
+    street,
+    number,
+    district,
+    paymentMethod,
+    changeFor,
+    dadosDoCartao,
+  ]);
 
   if (items.length === 0) {
     return (
@@ -110,8 +131,31 @@ export function CheckoutPage() {
     );
   }
 
-  const submit = () => {
+  const submit = async () => {
     setError(null);
+
+    /**
+     * O token do cartao e gerado agora, no envio, e nao enquanto a pessoa
+     * digita: ele vale uma unica vez e expira, entao gerar antes correria
+     * o risco de chegar velho na API se ela demorasse a concluir o resto
+     * do formulario.
+     */
+    let card: { token: string; paymentMethodId: string; installments: number } | undefined;
+    if (isCardPayment(paymentMethod)) {
+      if (!dadosDoCartao) {
+        setError('O formulário do cartão ainda não carregou. Aguarde um instante.');
+        return;
+      }
+      setTokenizando(true);
+      try {
+        card = await dadosDoCartao.tokenizar();
+      } catch {
+        setTokenizando(false);
+        setError('Confira os dados do cartão: número, validade, código de segurança e CPF.');
+        return;
+      }
+      setTokenizando(false);
+    }
 
     const payload = {
       type,
@@ -137,6 +181,7 @@ export function CheckoutPage() {
       ...(paymentMethod === 'CASH_ON_DELIVERY'
         ? { changeForCents: Math.round(Number(changeFor.replace(',', '.')) * 100) }
         : {}),
+      ...(card ? { card } : {}),
       ...(type === 'DELIVERY'
         ? {
             address: {
@@ -309,7 +354,12 @@ export function CheckoutPage() {
 
         <Section title="Forma de pagamento">
           <div className="grid grid-cols-2 gap-3">
-            {PAYMENT_OPTIONS.map((option) => (
+            {/* Cartao so aparece com a chave publica configurada — sem ela
+                a tokenizacao nao roda, e oferecer a opcao criaria pedido
+                que ninguem consegue pagar. */}
+            {PAYMENT_OPTIONS.filter(
+              (option) => cartaoDisponivel || !isCardPayment(option.value),
+            ).map((option) => (
               <button
                 key={option.value}
                 type="button"
@@ -328,6 +378,12 @@ export function CheckoutPage() {
               </button>
             ))}
           </div>
+
+          {isCardPayment(paymentMethod) && (
+            <div className="mt-5">
+              <CamposDoCartao totalCents={estimatedTotal} aoMudar={setDadosDoCartao} />
+            </div>
+          )}
 
           {paymentMethod === 'CASH_ON_DELIVERY' && (
             <div className="mt-4">
@@ -412,8 +468,8 @@ export function CheckoutPage() {
         <Button
           full
           size="lg"
-          onClick={submit}
-          loading={createOrder.isPending}
+          onClick={() => void submit()}
+          loading={createOrder.isPending || tokenizando}
           disabled={missing.length > 0 || !status?.isOpen}
         >
           {status?.isOpen ? '🔥 Confirmar pedido' : 'Loja fechada no momento'}

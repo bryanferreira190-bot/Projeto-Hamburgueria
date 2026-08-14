@@ -98,6 +98,88 @@ export class MercadoPagoService {
     });
   }
 
+  /**
+   * Cobra no cartao.
+   *
+   * Diferente do PIX, aqui a resposta ja e definitiva: o Mercado Pago
+   * aprova ou recusa na hora (HTTP 402 quando recusa). Nao ha o que
+   * esperar de webhook para liberar o pedido.
+   *
+   * O numero do cartao nunca chega aqui — so o token de uso unico que o
+   * navegador obteve direto do Mercado Pago.
+   *
+   * NAO USA O SDK, de proposito. Numa recusa o Mercado Pago responde 402
+   * com o motivo em `errors[].details` ("insufficient_amount",
+   * "bad_filled_card_data"...), e o erro que o SDK constroi joga esse
+   * campo fora: sobra "MercadoPago API error", sem motivo nenhum. Num
+   * cartao recusado o motivo e a informacao mais importante que existe —
+   * "saldo insuficiente" e "dados incorretos" pedem acoes opostas do
+   * cliente. Por isso esta chamada e feita direto, para preservar o
+   * corpo do erro. O PIX continua pelo SDK, onde isso nao faz falta.
+   */
+  async createCardOrder(params: {
+    orderId: string;
+    orderNumber: string;
+    amountCents: number;
+    payerEmail: string;
+    payerFirstName?: string | undefined;
+    notificationUrl: string;
+    cardToken: string;
+    cardPaymentMethodId: string;
+    installments: number;
+  }): Promise<{ ok: true; pedido: OrderResponse } | { ok: false; motivo: string }> {
+    const valor = (Math.round(params.amountCents) / 100).toFixed(2);
+
+    const resposta = await fetch('https://api.mercadopago.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.env.MERCADOPAGO_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': `card-${params.orderId}`,
+      },
+      body: JSON.stringify({
+        type: 'online',
+        /* "automatic" faz o Mercado Pago aprovar ou recusar de imediato,
+           sem estado intermediario de analise. */
+        processing_mode: 'automatic',
+        total_amount: valor,
+        description: `Pedido ${params.orderNumber} — Adventure Burguer`,
+        external_reference: params.orderId,
+        payer: {
+          email: params.payerEmail,
+          ...(params.payerFirstName ? { first_name: params.payerFirstName } : {}),
+        },
+        transactions: {
+          payments: [
+            {
+              amount: valor,
+              payment_method: {
+                id: params.cardPaymentMethodId,
+                type: 'credit_card',
+                token: params.cardToken,
+                installments: params.installments,
+              },
+            },
+          ],
+        },
+        config: { online: { callback_url: params.notificationUrl } },
+      }),
+    });
+
+    const corpo = (await resposta.json()) as OrderResponse & {
+      errors?: { code?: string; message?: string; details?: string[] }[];
+    };
+
+    if (resposta.ok) return { ok: true, pedido: corpo };
+
+    /* O motivo vem como "PAY01ABC...: insufficient_amount" — a parte que
+       interessa e a de depois dos dois-pontos. */
+    const detalhe = corpo.errors?.[0]?.details?.[0] ?? '';
+    const motivo = detalhe.includes(':') ? detalhe.split(':').pop()!.trim() : detalhe;
+
+    return { ok: false, motivo: motivo || corpo.errors?.[0]?.code || 'desconhecido' };
+  }
+
   async getOrder(externalId: string): Promise<OrderResponse> {
     return this.order.get({ id: externalId });
   }

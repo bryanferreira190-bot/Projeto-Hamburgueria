@@ -5,6 +5,60 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-14 — Cartão de crédito: Secure Fields e `fetch` cru na recusa
+
+**O que mudou.** "Cartão de crédito" no checkout passou a funcionar de
+verdade. Antes a opção existia mas não cobrava nada: o pedido nascia em
+`PENDING_PAYMENT` e ficava **preso para sempre**, sem QR Code nem tela de
+cartão — a cozinha nunca via. Era pior que não oferecer.
+
+**Cartão aprova na hora, PIX não.** O Mercado Pago responde aprovado ou
+recusado na própria chamada (`processing_mode: automatic`). Então o pedido
+pago no cartão vai **direto para `CONFIRMED`**, sem passar por "aguardando
+pagamento" e sem depender de webhook. Só o PIX espera confirmação.
+
+**Os dados do cartão nunca tocam o servidor.** O navegador usa os *Secure
+Fields* do Mercado Pago — número, validade e CVV vivem dentro de iframes
+deles, e o que sai é um token de uso único. Só o token chega na nossa API.
+Isso mantém o sistema fora do escopo pesado de PCI-DSS: um vazamento nosso
+não expõe cartão de ninguém.
+
+**Secure Fields em vez do Card Payment Brick.** O Brick é menos código,
+mas renderiza o próprio botão de envio e o próprio layout — brigaria com
+o checkout, que tem um botão único de "Confirmar pedido" no fim e um tema
+escuro próprio. Com Secure Fields controlamos o formulário e tokenizamos
+no submit, encaixando no fluxo que já existia.
+
+**O token é gerado no envio, não enquanto digita.** Ele vale uma vez só e
+expira; gerar antes correria o risco de chegar velho na API se a pessoa
+demorasse a terminar o resto do formulário.
+
+**A cobrança no cartão usa `fetch` cru, não o SDK — e isso é deliberado.**
+Numa recusa, o Mercado Pago responde 402 com o motivo em
+`errors[].details` (`insufficient_amount`, `bad_filled_card_data`,
+`rejected_by_issuer`...). O erro que o SDK constrói **joga esse campo
+fora**: sobra `MercadoPago API error`, sem motivo (verificado na prática —
+`causes` vem vazio e `errors` vem `undefined`). Num cartão recusado o
+motivo é a informação mais importante que existe: "sem limite" e "dados
+incorretos" pedem ações opostas do cliente, e uma mensagem genérica faria
+a pessoa tentar o mesmo cartão de novo ou desistir achando que o site
+quebrou. Por isso essa chamada é feita direto, para preservar o corpo do
+erro. O PIX continua pelo SDK, onde isso não faz falta.
+
+**Chave pública versionada de propósito.** `VITE_MERCADOPAGO_PUBLIC_KEY`
+fica no `.env.production` do storefront, junto da `VITE_API_URL`. Ela é
+feita para ficar exposta no navegador — só serve para tokenizar, nunca
+para cobrar. O Access Token, esse sim, continua só no Railway. Sem a
+chave configurada, a opção de cartão **some do checkout** em vez de gerar
+pedido impagável.
+
+**Testado com os cartões de teste do Mercado Pago**, pelo fluxo real da
+API: aprovado (`APRO`) → pedido `CONFIRMED` + `Payment` `PAID` com
+`paidAt`; e as recusas `FUND`, `SECU` e `OTHE` → pedido cancelado, nunca
+de pé sem pagamento, cada uma com sua mensagem específica.
+
+---
+
 ## 2026-08-14 — Limite de transação de 20s: a conexão do Neon fecha quando ocioso
 
 **Sintoma.** Finalizar pedido na loja dava "Ocorreu um erro inesperado"

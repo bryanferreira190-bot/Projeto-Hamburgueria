@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { OrderStatus, PaymentMethod, PaymentStatus, assertTransition } from '@adventure/shared';
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  assertTransition,
+  type CardPaymentInput,
+} from '@adventure/shared';
 import type { OrderResponse } from 'mercadopago/dist/clients/order/commonTypes';
 import { Inject } from '@nestjs/common';
 import { ENV } from '../../config/config.module';
@@ -42,6 +48,41 @@ function mapearStatus(mpStatus: string | undefined): PaymentStatus {
     default:
       return PaymentStatus.PENDING;
   }
+}
+
+/**
+ * Traduz o motivo da recusa do cartao para algo que o cliente entenda e
+ * saiba o que fazer.
+ *
+ * Vale o esforco de mapear um a um: "saldo insuficiente" e "dados
+ * incorretos" levam a acoes opostas, e uma mensagem generica faria a
+ * pessoa tentar o mesmo cartao de novo sem sucesso — ou desistir da
+ * compra achando que o site esta quebrado.
+ *
+ * Codigos em https://www.mercadopago.com.br/developers, secao
+ * "Recusas de pagamento por cartao".
+ */
+function mensagemDaRecusa(motivo: string): string {
+  const mensagens: Record<string, string> = {
+    insufficient_amount: 'Cartao sem limite suficiente. Tente outro cartao ou pague com PIX.',
+    bad_filled_card_data: 'Confira os dados do cartao: numero, validade e codigo de seguranca.',
+    bad_filled_security_code: 'Codigo de seguranca (CVV) incorreto.',
+    bad_filled_date: 'Data de validade incorreta.',
+    bad_filled_other: 'Algum dado do cartao esta incorreto. Confira e tente de novo.',
+    rejected_by_issuer: 'Seu banco recusou a compra. Entre em contato com ele ou use outro cartao.',
+    cc_rejected_call_for_authorize: 'Seu banco pede autorizacao para esta compra. Ligue para ele e tente de novo.',
+    cc_rejected_card_disabled: 'Cartao desativado. Fale com seu banco ou use outro cartao.',
+    cc_rejected_duplicated_payment: 'Ja existe uma compra igual em andamento. Confira antes de tentar de novo.',
+    cc_rejected_high_risk: 'A compra foi recusada por seguranca. Tente outro cartao ou pague com PIX.',
+    cc_rejected_max_attempts: 'Muitas tentativas com este cartao. Tente outro ou pague com PIX.',
+    invalid_installments: 'Este cartao nao aceita o parcelamento escolhido.',
+    card_not_allowed: 'Este tipo de cartao nao e aceito. Tente outro ou pague com PIX.',
+  };
+
+  return (
+    mensagens[motivo] ??
+    'Nao foi possivel aprovar o pagamento neste cartao. Tente outro cartao ou pague com PIX.'
+  );
 }
 
 /**
@@ -135,9 +176,11 @@ export class PaymentsService {
     try {
       await this.gravarPagamentoComRetentativa({
         orderId: order.id,
+        metodo: PaymentMethod.PIX,
         status: mapearStatus(resposta.status),
         amountCents: order.totalCents,
         externalId: String(resposta.id),
+        idempotencyKey: `pix-${order.id}`,
         qrCodeBase64: dados.qr_code_base64 ?? null,
         copiaECola: dados.qr_code,
         pixExpiresAt,
@@ -166,6 +209,80 @@ export class PaymentsService {
   }
 
   /**
+   * Cobra no cartao e grava o Payment.
+   *
+   * Diferente do PIX, o resultado ja e definitivo quando esta funcao
+   * retorna: `aprovado: true` significa que o dinheiro foi autorizado e o
+   * pedido pode seguir para a cozinha na hora, sem esperar webhook.
+   */
+  async createCardForOrder(order: {
+    id: string;
+    number: string;
+    totalCents: number;
+    payerEmail: string;
+    payerFirstName?: string | undefined;
+    card: CardPaymentInput;
+  }): Promise<{ aprovado: boolean }> {
+    if (!this.mercadoPago.configurado) {
+      throw new BadRequestException(
+        'Pagamento com cartao esta temporariamente indisponivel. Escolha outra forma de pagamento.',
+      );
+    }
+
+    const publicUrl = this.env.PUBLIC_API_URL || 'https://api.impactdev.site';
+
+    let resultado: Awaited<ReturnType<typeof this.mercadoPago.createCardOrder>>;
+    try {
+      resultado = await this.mercadoPago.createCardOrder({
+        orderId: order.id,
+        orderNumber: order.number,
+        amountCents: order.totalCents,
+        payerEmail: order.payerEmail,
+        payerFirstName: order.payerFirstName,
+        notificationUrl: `${publicUrl}/api/v1/payments/webhook`,
+        cardToken: order.card.token,
+        cardPaymentMethodId: order.card.paymentMethodId,
+        installments: order.card.installments,
+      });
+    } catch (error) {
+      /* Falha de rede/indisponibilidade — nao e recusa do cartao. */
+      this.logger.error(`Falha ao cobrar o cartao do pedido ${order.number}`, error as Error);
+      throw new BadRequestException(
+        'Nao foi possivel processar o pagamento agora. Tente novamente em instantes.',
+      );
+    }
+
+    if (!resultado.ok) {
+      this.logger.log(`Cartao recusado no pedido ${order.number}: ${resultado.motivo}`);
+      /* Nada foi cobrado; nao ha Payment a gravar. */
+      throw new BadRequestException(mensagemDaRecusa(resultado.motivo));
+    }
+
+    const resposta = resultado.pedido;
+    const status = mapearStatus(resposta.status);
+
+    await this.gravarPagamentoComRetentativa({
+      orderId: order.id,
+      metodo: PaymentMethod.CREDIT_CARD,
+      status,
+      amountCents: order.totalCents,
+      externalId: String(resposta.id),
+      idempotencyKey: `card-${order.id}`,
+      qrCodeBase64: null,
+      copiaECola: null,
+      pixExpiresAt: null,
+      ...(status === PaymentStatus.PAID ? { paidAt: new Date() } : {}),
+    });
+
+    this.logger.log(
+      `Cartao aprovado no pedido ${order.number} (cobranca ${resposta.id}, ` +
+        `${order.card.installments}x)`,
+    );
+
+    return { aprovado: status === PaymentStatus.PAID };
+  }
+
+  /**
    * Grava o Payment, insistindo em caso de falha passageira.
    *
    * O banco (Neon) usa conexao direta e hiberna quando fica ocioso; a
@@ -177,12 +294,15 @@ export class PaymentsService {
    */
   private async gravarPagamentoComRetentativa(dados: {
     orderId: string;
+    metodo: PaymentMethod;
     status: PaymentStatus;
     amountCents: number;
     externalId: string;
+    idempotencyKey: string;
     qrCodeBase64: string | null;
-    copiaECola: string;
+    copiaECola: string | null;
     pixExpiresAt: Date | null;
+    paidAt?: Date;
   }): Promise<void> {
     const TENTATIVAS = 3;
 
@@ -192,14 +312,15 @@ export class PaymentsService {
           data: {
             orderId: dados.orderId,
             provider: 'mercadopago',
-            method: PaymentMethod.PIX,
+            method: dados.metodo,
             status: dados.status,
             amountCents: dados.amountCents,
             externalId: dados.externalId,
-            idempotencyKey: `pix-${dados.orderId}`,
+            idempotencyKey: dados.idempotencyKey,
             pixQrCode: dados.qrCodeBase64,
             pixCopyPaste: dados.copiaECola,
             pixExpiresAt: dados.pixExpiresAt,
+            ...(dados.paidAt ? { paidAt: dados.paidAt } : {}),
           },
         });
         return;

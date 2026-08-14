@@ -65,6 +65,21 @@ export function isOnlinePayment(method: PaymentMethod): boolean {
   return ONLINE_PAYMENT_METHODS.includes(method);
 }
 
+/**
+ * Pago com cartao no site (nao na maquininha do entregador).
+ *
+ * Estes exigem o token gerado pelo SDK no navegador — diferente do PIX,
+ * que so precisa do e-mail do pagador.
+ */
+export const CARD_PAYMENT_METHODS: readonly PaymentMethod[] = [
+  PaymentMethod.CREDIT_CARD,
+  PaymentMethod.DEBIT_CARD,
+];
+
+export function isCardPayment(method: PaymentMethod): boolean {
+  return CARD_PAYMENT_METHODS.includes(method);
+}
+
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING_PAYMENT: 'Aguardando pagamento',
   CONFIRMED: 'Pedido confirmado',

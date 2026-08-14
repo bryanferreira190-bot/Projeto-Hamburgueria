@@ -12,6 +12,7 @@ import {
   assertTransition,
   canCustomerCancel,
   formatBRL,
+  isCardPayment,
   isOnlinePayment,
   isTerminalStatus,
   type CreateOrderInput,
@@ -217,6 +218,37 @@ export class OrdersService {
       } catch (error) {
         await this.updateStatus(order.id, OrderStatus.CANCELED, {
           reason: 'Falha ao gerar cobranca PIX',
+        });
+        throw error;
+      }
+    }
+
+    /**
+     * Cartao resolve na hora: o Mercado Pago aprova ou recusa na propria
+     * chamada. Aprovado, o pedido ja vai confirmado para a cozinha, sem
+     * passar por "aguardando pagamento" — nao ha o que esperar.
+     */
+    if (isCardPayment(input.paymentMethod)) {
+      try {
+        const { aprovado } = await this.payments.createCardForOrder({
+          id: order.id,
+          number: order.number,
+          totalCents: order.totalCents,
+          payerEmail: input.customer.email!,
+          payerFirstName: input.customer.name.split(' ')[0],
+          card: input.card!,
+        });
+
+        if (aprovado) {
+          await this.updateStatus(order.id, OrderStatus.CONFIRMED, {
+            reason: 'Pagamento aprovado no cartao',
+          });
+        }
+      } catch (error) {
+        /* Recusa do cartao tambem cai aqui: o pedido nao pode ficar de pe
+           sem pagamento, e a mensagem que sobe ja explica o motivo. */
+        await this.updateStatus(order.id, OrderStatus.CANCELED, {
+          reason: 'Pagamento no cartao nao aprovado',
         });
         throw error;
       }

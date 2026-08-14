@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@adventure/shared": "*",
+    "@mercadopago/sdk-js": "^0.0.3",
     "@tanstack/react-query": "^5.62.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
