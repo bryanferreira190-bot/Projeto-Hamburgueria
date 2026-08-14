@@ -5,6 +5,56 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-14 — Limite de transação de 20s: a conexão do Neon fecha quando ocioso
+
+**Sintoma.** Finalizar pedido na loja dava "Ocorreu um erro inesperado"
+(500) de forma intermitente. Tentar de novo logo em seguida funcionava.
+Parecia falha do PIX, mas não era: nenhum pedido chegava a ser gravado —
+o erro acontecia antes de qualquer coisa relacionada a pagamento.
+
+**Causa raiz, pelos logs do Railway:**
+
+```
+prisma:error Error in PostgreSQL connection: Error { kind: Closed }
+Transaction API error: Transaction already closed: ... The timeout for
+this transaction was 5000 ms, however 5191 ms passed since the start.
+```
+
+O Neon encerra a conexão quando o banco fica ocioso. O primeiro pedido
+depois de uma pausa cai numa transação que precisa **reconectar antes de
+rodar as consultas** — e só a reconexão, a partir do Railway, consome
+alguns segundos. Com o limite padrão do Prisma (5s), estourava por pouco
+(5191ms medidos). A transação em si leva ~700ms com a conexão ativa.
+
+**Correção.** `transactionOptions` no `PrismaService`: `timeout` de 20s e
+`maxWait` de 10s. Não é mascarar lentidão — a folga só existe para o caso
+excepcional da reconexão e não muda nada no caminho normal. É exatamente
+o que a mensagem de erro do Prisma recomenda.
+
+**Como foi confirmado.** Transação com `pg_sleep(7)` passou (7137ms) — com
+o padrão de 5s teria falhado. E a correlação em produção era exata: toda
+falha vinha após alguns minutos de ociosidade; toda tentativa imediata
+seguinte dava certo.
+
+**Duas hipóteses erradas no caminho, que valem registro.** Primeiro achei
+que a conexão ociosa *morria* e a consulta seguinte falhava — testei 7min
+ociosos e ambas as conexões (direta e pooler) sobreviveram, refutando.
+Depois achei que era só o limite de 5s — testei localmente e a transação
+fria levou 1307ms, bem abaixo, refutando de novo. As duas estavam certas
+**em conjunto**, e nenhuma reproduzia daqui porque a latência local até o
+Neon é bem menor que a do Railway. A lição: para erro que só acontece em
+produção, buscar o log de produção antes de teorizar — foi o log que
+resolveu em um minuto o que duas rodadas de teste não resolveram.
+
+**Alternativa considerada.** Trocar a `DATABASE_URL` para o endpoint com
+pooler do Neon (`-pooler`, com `pgbouncer=true`) deixaria a reconexão mais
+barata. Testado e funciona, inclusive com as transações interativas que a
+criação de pedido usa. Ficou de fora por ora porque exige mexer em
+variável de ambiente em produção e o ajuste de limite já resolve a causa
+imediata — mas continua sendo a evolução natural se o problema voltar.
+
+---
+
 ## 2026-08-14 — Pagamento por PIX (Mercado Pago): Orders API, não Payments API
 
 **O que mudou.** `POST /orders` com PIX agora gera cobrança de verdade no

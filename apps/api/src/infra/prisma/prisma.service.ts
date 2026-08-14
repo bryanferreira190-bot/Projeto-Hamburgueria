@@ -14,6 +14,31 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     super({
       log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+
+      /**
+       * LIMITES DE TRANSACAO FOLGADOS, DE PROPOSITO
+       *
+       * O banco (Neon) encerra a conexao quando fica ocioso. O primeiro
+       * pedido depois de uma pausa cai numa transacao que precisa
+       * reconectar antes de rodar as consultas — e so a reconexao ja
+       * consome alguns segundos a partir do Railway.
+       *
+       * Com o padrao do Prisma (5s), isso estourava o limite e derrubava
+       * a criacao do pedido com "Transaction already closed" (5191ms
+       * medidos em producao). O cliente via "erro inesperado" e o pedido
+       * nem chegava a ser gravado; tentar de novo funcionava, porque a
+       * conexao ja estava quente.
+       *
+       * Nao e mascarar lentidao: a transacao em si leva ~700ms com a
+       * conexao ativa. A folga existe para o caso excepcional da
+       * reconexao, e nao muda nada no caminho normal.
+       */
+      transactionOptions: {
+        /* Tempo para conseguir uma conexao antes de comecar (padrao 2s). */
+        maxWait: 10_000,
+        /* Tempo total da transacao (padrao 5s). */
+        timeout: 20_000,
+      },
     });
   }
 
