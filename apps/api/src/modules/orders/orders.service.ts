@@ -19,6 +19,7 @@ import {
   type ListOrdersFilter,
 } from '@adventure/shared';
 import type { Prisma } from '@prisma/client';
+import { hojeNoFusoDaLoja } from '../../common/timezone';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { DeliveryService } from '../delivery/delivery.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -123,10 +124,17 @@ export class OrdersService {
         ? OrderStatus.PENDING_PAYMENT
         : OrderStatus.CONFIRMED;
 
+      /* Calculado uma unica vez e reaproveitado abaixo: garante que o
+         numero gerado e o orderDate gravado sejam sempre do mesmo dia,
+         mesmo no instante raro em que a meia-noite cai no meio da
+         transacao. */
+      const hoje = hojeNoFusoDaLoja();
+
       const created = await tx.order.create({
         data: {
           storeId: store.id,
-          number: await this.nextOrderNumber(tx, store.id),
+          number: await this.nextOrderNumber(tx, store.id, hoje),
+          orderDate: hoje,
           customerId: customer.id,
           couponId: priced.couponId,
           type: input.type,
@@ -274,13 +282,21 @@ export class OrdersService {
     return toOrderDto(order);
   }
 
-  /** Consulta publica pelo numero curto, para o cliente acompanhar. */
+  /**
+   * Consulta publica pelo numero curto, para o cliente acompanhar.
+   *
+   * O numero SO e unico dentro do mesmo dia (ver nextOrderNumber) — "A001"
+   * de hoje e "A001" de semana passada sao pedidos diferentes. Por isso
+   * pega sempre o mais recente: e o que a pessoa quase certamente quer
+   * dizer ao digitar o numero que acabou de receber.
+   */
   async findByNumber(number: string) {
     const store = await this.prisma.store.findFirst({ select: { id: true } });
     if (!store) throw new NotFoundException('Loja nao configurada');
 
     const order = await this.prisma.order.findFirst({
       where: { storeId: store.id, number: number.toUpperCase() },
+      orderBy: { createdAt: 'desc' },
       include: {
         items: { include: { options: true } },
         customer: { select: { name: true, phone: true } },
@@ -419,10 +435,16 @@ export class OrdersService {
     return this.findById(orderId);
   }
 
-  /** Cancelamento pelo cliente, permitido apenas antes do preparo. */
+  /**
+   * Cancelamento pelo cliente, permitido apenas antes do preparo.
+   *
+   * Mesmo cuidado de findByNumber: o numero repete a cada dia, entao pega
+   * sempre o pedido mais recente com esse numero.
+   */
   async cancelByCustomer(number: string, reason: string) {
     const order = await this.prisma.order.findFirst({
       where: { number: number.toUpperCase() },
+      orderBy: { createdAt: 'desc' },
       select: { id: true, status: true },
     });
 
@@ -446,16 +468,26 @@ export class OrdersService {
    * Vive dentro da transacao, e a unicidade e garantida pelo indice
    * [storeId, number] no banco.
    */
-  private async nextOrderNumber(tx: Prisma.TransactionClient, storeId: string): Promise<string> {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const todayCount = await tx.order.count({
-      where: { storeId, createdAt: { gte: startOfDay } },
+  /**
+   * "A001", "A002"... reiniciando a cada dia NO FUSO DA LOJA.
+   *
+   * Contar por `orderDate` (coluna so-de-data, no fuso certo) em vez de
+   * `createdAt >= inicio do dia em UTC` e o que faz o numero realmente
+   * reiniciar no horario que faz sentido para o negocio — a loja abre a
+   * noite (18h-22h30 em Brasilia = 21h-01h30 UTC), entao um limite em
+   * UTC cairia no meio do proprio expediente. Ver DECISOES.md.
+   */
+  private async nextOrderNumber(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    hoje: Date,
+  ): Promise<string> {
+    const contagemDeHoje = await tx.order.count({
+      where: { storeId, orderDate: hoje },
     });
 
-    const letter = String.fromCharCode(65 + (Math.floor(todayCount / 999) % 26));
-    return `${letter}${String((todayCount % 999) + 1).padStart(3, '0')}`;
+    const letter = String.fromCharCode(65 + (Math.floor(contagemDeHoje / 999) % 26));
+    return `${letter}${String((contagemDeHoje % 999) + 1).padStart(3, '0')}`;
   }
 }
 

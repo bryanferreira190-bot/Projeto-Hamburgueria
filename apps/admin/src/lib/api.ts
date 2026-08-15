@@ -124,6 +124,8 @@ export interface OrderRow {
   totalCents: number;
   totalFormatted: string;
   paymentMethod: string;
+  /** So preenchido quando o pagamento e em dinheiro na entrega. */
+  changeForCents: number | null;
   address: {
     street: string | null;
     number: string | null;

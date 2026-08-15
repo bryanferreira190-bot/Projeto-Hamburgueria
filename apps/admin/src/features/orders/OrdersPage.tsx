@@ -4,6 +4,7 @@ import {
   ORDER_STATUS_LABELS,
   OrderStatus,
   PAYMENT_METHOD_LABELS,
+  formatBRL,
   nextStatusFor,
   type OrderType,
   type PaymentMethod,
@@ -211,9 +212,25 @@ function CartaoPedido({
         </p>
       )}
 
-      <p className="mb-3 text-xs text-cinza-2">
-        {PAYMENT_METHOD_LABELS[pedido.paymentMethod as PaymentMethod] ?? pedido.paymentMethod}
-      </p>
+      {pedido.paymentMethod === 'CASH_ON_DELIVERY' || pedido.paymentMethod === 'CARD_ON_DELIVERY' ? (
+        /* Pagamento na entrega nao passou pelo Mercado Pago — quem entrega
+           precisa cobrar na hora. Por isso o destaque forte: e a unica
+           informacao deste cartao em que um erro custa dinheiro de verdade
+           saindo do bolso de quem entregou. */
+        <p className="mb-3 flex items-center gap-1.5 rounded-lg border border-amarelo/40 bg-amarelo/10 px-2.5 py-1.5 text-xs font-bold text-amarelo">
+          <span aria-hidden>{pedido.paymentMethod === 'CASH_ON_DELIVERY' ? '💵' : '🏧'}</span>
+          Cobrar na entrega — {PAYMENT_METHOD_LABELS[pedido.paymentMethod as PaymentMethod]}
+          {pedido.paymentMethod === 'CASH_ON_DELIVERY' && pedido.changeForCents !== null && (
+            <span className="font-normal text-amarelo/80">
+              · troco para {formatBRL(pedido.changeForCents)}
+            </span>
+          )}
+        </p>
+      ) : (
+        <p className="mb-3 text-xs text-cinza-2">
+          {PAYMENT_METHOD_LABELS[pedido.paymentMethod as PaymentMethod] ?? pedido.paymentMethod}
+        </p>
+      )}
 
       <div className="flex gap-2">
         {proximo && (

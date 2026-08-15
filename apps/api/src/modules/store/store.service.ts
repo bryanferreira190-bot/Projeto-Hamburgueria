@@ -1,8 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { STORE_TIMEZONE } from '../../common/timezone';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-
-/** Fuso da operacao. O servidor pode rodar em UTC; o horario e sempre local. */
-const STORE_TIMEZONE = 'America/Sao_Paulo';
 
 const WEEKDAY_NAMES = [
   'domingo',

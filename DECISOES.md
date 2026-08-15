@@ -5,6 +5,65 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-15 — Número do pedido: unicidade escopada por dia, não global
+
+**Sintoma.** `POST /orders` dava 500 ("erro inesperado") de forma
+consistente — em **qualquer** forma de pagamento, incluindo dinheiro e
+maquininha na entrega, que nem tocam o Mercado Pago. Só aconteceu a
+partir do segundo dia de uso real do sistema.
+
+**Causa raiz.** `number` (o código curto tipo "A001", gritado na
+cozinha) era gerado contando pedidos do dia e reiniciando em "A001" a
+cada dia — mas a constraint `@@unique([storeId, number])` era **global**,
+sem noção de dia nenhuma. No segundo dia, o primeiro pedido tentava
+gravar "A001" de novo e colidia com o "A001" do dia anterior, que
+continua no banco. `tx.order.create()` estourava `P2002` sem tratamento,
+e o filtro de erro devolvia 500 genérico — daí a mensagem não dar pista
+nenhuma de que era colisão de número.
+
+**Por que só apareceu agora.** É a primeira vez que o sistema teve
+pedidos reais (ou de teste, sem limpeza) sobrevivendo de um dia para o
+outro. Em toda sessão de teste anterior os pedidos foram criados e
+apagados no mesmo dia — a colisão nunca teve chance de acontecer.
+
+**Correção.** Nova coluna `orderDate` (`DATE`, no fuso da loja — ver
+`common/timezone.ts`), preenchida a partir de `createdAt` para os pedidos
+já existentes. A constraint virou `@@unique([storeId, orderDate,
+number])`, e `nextOrderNumber()` conta por `orderDate` exato em vez de
+`createdAt >= inicio do dia`.
+
+**Efeito colateral que também precisou de correção.** Com `number`
+deixando de ser globalmente único de propósito, "A001" de hoje e "A001"
+de duas semanas atrás são pedidos diferentes — `findByNumber()` (usado
+por `GET /orders/track/:number`, a tela pública de acompanhamento) e
+`cancelByCustomer()` buscavam só por `number`, sem `orderBy`, arriscando
+devolver o pedido errado (ou um resultado não-determinístico do Postgres)
+assim que o mesmo número se repetisse. Os dois agora ordenam por
+`createdAt: 'desc'` e pegam o mais recente — é o que a pessoa quase
+certamente quer dizer ao digitar um número que acabou de receber.
+
+**`orderDate` como `Date`, não como string, no código.** A `data` do
+`create()` aceitou uma string "YYYY-MM-DD" de boa, mas o `where` do
+`count()` não — `PrismaClientValidationError` em runtime, silencioso no
+`tsc` porque o tipo gerado aceita as duas formas nos dois lugares (só
+uma delas funciona de verdade). `hojeNoFusoDaLoja()` devolve `Date` desde
+o início para não depender de qual operação Prisma vai usar o valor.
+
+**Fuso duplicado, unificado.** `store.service.ts` já tinha essa exata
+logica (`STORE_TIMEZONE = 'America/Sao_Paulo'`) para o horário de
+funcionamento, com o mesmo comentário sobre o servidor rodar em UTC.
+Virou `common/timezone.ts`, importado pelos dois lugares — duas contas
+de "hoje" divergentes foi exatamente a familia de bug que causou isso.
+
+**Migration com backfill em 3 passos**, porque já existem pedidos:
+coluna nullable → `UPDATE` a partir de `createdAt` (convertido de UTC
+"nu" para o fuso da loja com `AT TIME ZONE 'UTC' AT TIME ZONE
+'America/Sao_Paulo'`, na ordem certa) → `NOT NULL`. Testada inteira
+dentro de uma transação com `ROLLBACK` proposital antes de aplicar de
+verdade — não há banco de staging neste projeto.
+
+---
+
 ## 2026-08-14 — Cartão de crédito: Secure Fields e `fetch` cru na recusa
 
 **O que mudou.** "Cartão de crédito" no checkout passou a funcionar de
