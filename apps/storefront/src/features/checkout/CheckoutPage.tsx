@@ -12,7 +12,9 @@ import { ApiError, api } from '../../lib/api';
 import { useCart } from '../../stores/cart';
 import { Button, EmptyState, Field, Input, Textarea } from '../../components/ui';
 import { cx } from '../../lib/cx';
+import { mascararCep, mascararTelefone } from '../../lib/mascara';
 import { cartaoDisponivel } from '../../lib/mercadopago';
+import { salvarTelefoneDoPedido } from '../order/telefoneDoPedido';
 import { CamposDoCartao, type DadosDoCartao } from './CamposDoCartao';
 
 type OrderType = 'DELIVERY' | 'PICKUP';
@@ -46,6 +48,7 @@ export function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [dadosDoCartao, setDadosDoCartao] = useState<DadosDoCartao | null>(null);
   const [tokenizando, setTokenizando] = useState(false);
+  const [aceitouPrivacidade, setAceitouPrivacidade] = useState(false);
 
   /**
    * Chave gerada uma vez por sessao de checkout. Enviada em todas as
@@ -72,6 +75,9 @@ export function CheckoutPage() {
     mutationFn: (payload: unknown) => api.createOrder(payload, idempotencyKey),
     onSuccess: (order) => {
       clear();
+      /* Poupa a pessoa de digitar o telefone de novo na proxima tela —
+         ela acabou de informar o mesmo numero aqui. */
+      salvarTelefoneDoPedido(order.number, phone);
       void navigate(`/pedido/${order.number}`, { replace: true });
     },
     onError: (err) => {
@@ -101,6 +107,7 @@ export function CheckoutPage() {
        validar daqui; o SDK recusa a tokenizacao se estiverem incompletos.
        So checamos o que e nosso. */
     if (isCardPayment(paymentMethod) && !dadosDoCartao) list.push('dados do cartão');
+    if (!aceitouPrivacidade) list.push('aceite da política de privacidade');
     return list;
   }, [
     name,
@@ -114,6 +121,7 @@ export function CheckoutPage() {
     paymentMethod,
     changeFor,
     dadosDoCartao,
+    aceitouPrivacidade,
   ]);
 
   if (items.length === 0) {
@@ -242,7 +250,7 @@ export function CheckoutPage() {
             <Field label="WhatsApp" required hint="É por aqui que avisamos sobre o pedido">
               <Input
                 value={phone}
-                onChange={(event) => setPhone(formatPhone(event.target.value))}
+                onChange={(event) => setPhone(mascararTelefone(event.target.value))}
                 placeholder="(11) 99999-9999"
                 inputMode="tel"
                 autoComplete="tel"
@@ -278,7 +286,7 @@ export function CheckoutPage() {
               <Field label="CEP" required>
                 <Input
                   value={zipCode}
-                  onChange={(event) => setZipCode(formatCep(event.target.value))}
+                  onChange={(event) => setZipCode(mascararCep(event.target.value))}
                   placeholder="00000-000"
                   inputMode="numeric"
                   autoComplete="postal-code"
@@ -461,6 +469,24 @@ export function CheckoutPage() {
           </div>
         )}
 
+        <label className="flex items-start gap-2.5 text-xs text-cinza-2">
+          <input
+            type="checkbox"
+            checked={aceitouPrivacidade}
+            onChange={(event) => setAceitouPrivacidade(event.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-amarelo"
+          />
+          <span>
+            Autorizo o uso dos meus dados (nome, telefone
+            {type === 'DELIVERY' && ' e endereço'}) para processar este pedido e entrar em contato
+            sobre ele, conforme a{' '}
+            <Link to="/privacidade" target="_blank" className="text-amarelo underline">
+              Política de Privacidade
+            </Link>
+            .
+          </span>
+        </label>
+
         {missing.length > 0 && (
           <p className="text-center text-sm text-cinza-2">Falta preencher: {missing.join(', ')}.</p>
         )}
@@ -534,17 +560,4 @@ function TypeCard({
       <span className="block text-xs text-cinza-2">{description}</span>
     </button>
   );
-}
-
-/* Mascaras apenas de exibicao; a API recebe somente digitos. */
-function formatPhone(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
-function formatCep(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
-  return digits.length <= 5 ? digits : `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }

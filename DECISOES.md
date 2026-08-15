@@ -5,6 +5,54 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-15 — Rastreio de pedido exigindo telefone; adequação LGPD
+
+**Vazamento.** `GET /orders/track/:number` era `@Public()` sem
+verificação nenhuma além do número — e o número é curto, sequencial por
+dia e portanto trivialmente enumerável ("A001", "A002"...). Qualquer um
+percorrendo a sequência lia nome, telefone e endereço completo de
+qualquer cliente da loja. Pior: `POST /orders/track/:number/cancel`
+tinha exatamente o mesmo buraco e ainda **deixava cancelar o pedido de
+outra pessoa**, só sabendo o número.
+
+**Correção.** As duas rotas agora exigem o telefone usado no pedido
+(`trackOrderQuerySchema`/`cancelOrderSchema.phone`, ambos usando o mesmo
+`phoneSchema` do cadastro). Número certo com telefone errado devolve o
+**mesmo** 404 genérico de número inexistente — de propósito, para não
+dar como consultar quais números existem por tentativa e erro. A rota
+`GET` ganhou `@Throttle` (não tinha nenhum antes): na prática virou uma
+tentativa de login, e merece o mesmo limite que uma.
+
+**Storefront.** `/pedido/:number` agora pede o WhatsApp antes de mostrar
+qualquer coisa (`OrderGate` em `TrackPage.tsx`), a menos que o telefone
+já esteja em `sessionStorage` desta aba — o que acontece automaticamente
+logo após o checkout, para a pessoa não digitar o mesmo número duas
+vezes na mesma visita (`telefoneDoPedido.ts`). `sessionStorage`, não
+`localStorage`, de propósito: some ao fechar a aba, não é um "lembrar de
+mim" permanente guardando telefone de cliente indefinidamente no
+navegador de qualquer um que use o mesmo computador depois.
+
+**Resto da adequação LGPD, no mesmo commit:**
+- Checkbox de consentimento explícito no checkout, linkando para
+  `/privacidade` (`PrivacidadePage.tsx`, nova) — cobre coleta, uso,
+  compartilhamento com a Mercado Pago, retenção, direitos do titular e
+  como exercê-los. **Tem um `[CNPJ]` propositalmente pendente** — não
+  existe CNPJ cadastrado em nenhum lugar do projeto, e não é algo para
+  inventar. Preencher antes de considerar a página "publicada" de
+  verdade.
+- Rodapé com link para a política em storefront, admin e landing (os
+  três únicos pontos de rodapé do projeto — ver mapeamento).
+- E-mail de admin removido de um log (`2FA ativado para ${admin.email}`
+  → usa o id): dado pessoal em log sem necessidade nenhuma de estar ali.
+
+**O que NÃO foi feito, de propósito.** Endpoint de exportação/exclusão
+automática de dados do cliente não existe — hoje não há sequer módulo
+de "conta de cliente" (o checkout é sempre convidado). Construir um
+fluxo de autoatendimento para isso é desproporcional para o tamanho do
+sistema agora; a política de privacidade cobre esse direito via contato
+direto pelo WhatsApp da loja, o que é uma prática aceita para negócios
+deste porte. Se o volume de pedidos crescer muito, vale reconsiderar.
+
 ## 2026-08-15 — Aviso sonoro sintetizado, não o arquivo do iPhone
 
 O painel toca um aviso quando entra pedido em "Aguardando pagamento" ou

@@ -16,10 +16,12 @@ import {
   cancelOrderSchema,
   createOrderSchema,
   listOrdersFilterSchema,
+  trackOrderQuerySchema,
   updateOrderStatusSchema,
   type CancelOrderInput,
   type CreateOrderInput,
   type ListOrdersFilter,
+  type TrackOrderQuery,
   type UpdateOrderStatusInput,
 } from '@adventure/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -47,11 +49,22 @@ export class OrdersController {
     return this.orders.create(body, idempotencyKey);
   }
 
-  /** Acompanhamento pelo numero curto do pedido. */
+  /**
+   * Acompanhamento pelo numero curto do pedido.
+   *
+   * Exige o telefone usado no pedido como segundo fator (ver
+   * trackOrderQuerySchema) — sem isso o numero curto e sequencial
+   * ("A001", "A002"...) bastaria para ler dado de qualquer cliente.
+   * Throttle porque a rota agora e, na pratica, uma tentativa de login.
+   */
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Get('track/:number')
-  track(@Param('number') number: string) {
-    return this.orders.findByNumber(number);
+  track(
+    @Param('number') number: string,
+    @Query(new ZodValidationPipe(trackOrderQuerySchema)) query: TrackOrderQuery,
+  ) {
+    return this.orders.findByNumber(number, query.phone);
   }
 
   @Public()
@@ -62,7 +75,7 @@ export class OrdersController {
     @Param('number') number: string,
     @Body(new ZodValidationPipe(cancelOrderSchema)) body: CancelOrderInput,
   ) {
-    return this.orders.cancelByCustomer(number, body.reason);
+    return this.orders.cancelByCustomer(number, body.phone, body.reason);
   }
 
   /* ---------------- Rotas administrativas ---------------- */

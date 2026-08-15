@@ -186,8 +186,13 @@ export const api = {
       headers: { 'Idempotency-Key': idempotencyKey },
     }),
 
-  trackOrder: (number: string) => request<Order>(`/orders/track/${number}`),
+  /**
+   * O telefone e exigido como confirmacao de identidade — o numero curto
+   * do pedido sozinho e enumeravel (A001, A002...). Ver DECISOES.md.
+   */
+  trackOrder: (number: string, phone: string) =>
+    request<Order>(`/orders/track/${number}?phone=${encodeURIComponent(phone)}`),
 
-  cancelOrder: (number: string, reason: string) =>
-    request<Order>(`/orders/track/${number}/cancel`, { method: 'POST', body: { reason } }),
+  cancelOrder: (number: string, phone: string, reason: string) =>
+    request<Order>(`/orders/track/${number}/cancel`, { method: 'POST', body: { phone, reason } }),
 };

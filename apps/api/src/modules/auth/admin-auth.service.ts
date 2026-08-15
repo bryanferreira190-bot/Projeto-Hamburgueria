@@ -201,7 +201,9 @@ export class AdminAuthService {
       data: { totpEnabledAt: new Date() },
     });
 
-    this.logger.log(`2FA ativado para ${admin.email}`);
+    /* Id, nao e-mail: log nao e lugar para dado pessoal que nao precisa
+       estar ali — o id ja identifica a conta de sobra para auditoria. */
+    this.logger.log(`2FA ativado para admin ${adminId}`);
     return { enabled: true };
   }
 

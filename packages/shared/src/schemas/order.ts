@@ -109,7 +109,22 @@ export const updateOrderStatusSchema = z.object({
 });
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 
+/**
+ * Confirmacao de identidade para acessar um pedido pelo numero curto.
+ *
+ * O numero ("A001") e curto, sequencial por dia e portanto trivialmente
+ * enumeravel — sem isto, bastaria percorrer A001, A002... para ler nome,
+ * telefone e endereco de qualquer cliente da loja. O telefone informado
+ * no proprio checkout serve de segundo fator simples: so quem fez o
+ * pedido (ou recebeu o link) sabe qual numero usar.
+ */
+export const trackOrderQuerySchema = z.object({
+  phone: phoneSchema,
+});
+export type TrackOrderQuery = z.infer<typeof trackOrderQuerySchema>;
+
 export const cancelOrderSchema = z.object({
+  phone: phoneSchema,
   reason: z.string().trim().min(3, 'Informe o motivo').max(200),
 });
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;

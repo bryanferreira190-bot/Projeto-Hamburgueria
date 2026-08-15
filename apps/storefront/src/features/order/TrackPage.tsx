@@ -11,6 +11,8 @@ import {
 import { ApiError, api } from '../../lib/api';
 import { Badge, Button, EmptyState, Field, Input, Spinner } from '../../components/ui';
 import { cx } from '../../lib/cx';
+import { mascararTelefone } from '../../lib/mascara';
+import { esquecerTelefoneDoPedido, lerTelefoneDoPedido, salvarTelefoneDoPedido } from './telefoneDoPedido';
 
 /** Etapas visiveis ao cliente, na ordem em que acontecem. */
 const STEPS: { status: OrderStatus; icon: string }[] = [
@@ -24,6 +26,7 @@ const STEPS: { status: OrderStatus; icon: string }[] = [
 export function TrackPage() {
   const { number } = useParams<{ number: string }>();
   const [search, setSearch] = useState('');
+  const [telefoneBusca, setTelefoneBusca] = useState('');
   const navigate = useNavigate();
 
   if (!number) {
@@ -32,12 +35,17 @@ export function TrackPage() {
         <h1 className="titulo-display mb-2 text-3xl">
           ACOMPANHAR <span className="text-amarelo">PEDIDO</span>
         </h1>
-        <p className="mb-6 text-cinza">Informe o número que você recebeu ao finalizar.</p>
+        <p className="mb-6 text-cinza">
+          Informe o número que você recebeu ao finalizar e o WhatsApp usado no pedido.
+        </p>
 
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (search.trim()) void navigate(`/pedido/${search.trim().toUpperCase()}`);
+            const numero = search.trim().toUpperCase();
+            if (!numero || telefoneBusca.replace(/\D/g, '').length < 11) return;
+            salvarTelefoneDoPedido(numero, telefoneBusca);
+            void navigate(`/pedido/${numero}`);
           }}
           className="space-y-4"
         >
@@ -49,10 +57,25 @@ export function TrackPage() {
               maxLength={12}
             />
           </Field>
-          <Button full type="submit" disabled={!search.trim()}>
+          <Field label="WhatsApp usado no pedido">
+            <Input
+              value={telefoneBusca}
+              onChange={(event) => setTelefoneBusca(mascararTelefone(event.target.value))}
+              placeholder="(11) 91234-5678"
+            />
+          </Field>
+          <Button
+            full
+            type="submit"
+            disabled={!search.trim() || telefoneBusca.replace(/\D/g, '').length < 11}
+          >
             Acompanhar
           </Button>
         </form>
+
+        <p className="mt-4 text-center text-xs text-cinza-2">
+          Pedimos o WhatsApp para garantir que só você veja os dados do seu pedido.
+        </p>
 
         <Link to="/" className="mt-6 block text-center text-sm text-cinza underline">
           Voltar ao cardápio
@@ -61,10 +84,98 @@ export function TrackPage() {
     );
   }
 
-  return <OrderDetail number={number} />;
+  return <OrderGate number={number} />;
 }
 
-function OrderDetail({ number }: { number: string }) {
+/**
+ * Porta de entrada do pedido: so passa para OrderDetail depois de saber
+ * (agora ou de uma visita anterior nesta aba) o telefone usado nele.
+ *
+ * O numero curto do pedido sozinho e enumeravel (A001, A002...) — sem
+ * este segundo fator, bastaria trocar o numero na URL para ver o pedido
+ * de outra pessoa. Ver DECISOES.md.
+ */
+function OrderGate({ number }: { number: string }) {
+  const [telefone, setTelefone] = useState(() => lerTelefoneDoPedido(number) ?? '');
+
+  if (!telefone) {
+    return (
+      <PhoneGateForm
+        number={number}
+        onConfirmar={(valor) => {
+          salvarTelefoneDoPedido(number, valor);
+          setTelefone(valor.replace(/\D/g, ''));
+        }}
+      />
+    );
+  }
+
+  return (
+    <OrderDetail
+      number={number}
+      telefone={telefone}
+      onTelefoneInvalido={() => {
+        esquecerTelefoneDoPedido(number);
+        setTelefone('');
+      }}
+    />
+  );
+}
+
+function PhoneGateForm({
+  number,
+  onConfirmar,
+}: {
+  number: string;
+  onConfirmar: (telefone: string) => void;
+}) {
+  const [telefone, setTelefone] = useState('');
+
+  return (
+    <div className="mx-auto max-w-md px-5 py-16">
+      <h1 className="titulo-display mb-2 text-3xl">
+        Pedido <span className="text-amarelo">{number}</span>
+      </h1>
+      <p className="mb-6 text-cinza">
+        Confirme o WhatsApp usado neste pedido para ver os detalhes.
+      </p>
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (telefone.replace(/\D/g, '').length === 11) onConfirmar(telefone);
+        }}
+        className="space-y-4"
+      >
+        <Field label="WhatsApp usado no pedido">
+          <Input
+            value={telefone}
+            onChange={(event) => setTelefone(mascararTelefone(event.target.value))}
+            placeholder="(11) 91234-5678"
+            autoFocus
+          />
+        </Field>
+        <Button full type="submit" disabled={telefone.replace(/\D/g, '').length < 11}>
+          Ver pedido
+        </Button>
+      </form>
+
+      <Link to="/pedido" className="mt-6 block text-center text-sm text-cinza underline">
+        Buscar outro pedido
+      </Link>
+    </div>
+  );
+}
+
+function OrderDetail({
+  number,
+  telefone,
+  onTelefoneInvalido,
+}: {
+  number: string;
+  telefone: string;
+  onTelefoneInvalido: () => void;
+}) {
   const queryClient = useQueryClient();
   const [cancelReason, setCancelReason] = useState('');
   const [showCancel, setShowCancel] = useState(false);
@@ -74,8 +185,8 @@ function OrderDetail({ number }: { number: string }) {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['order', number],
-    queryFn: () => api.trackOrder(number),
+    queryKey: ['order', number, telefone],
+    queryFn: () => api.trackOrder(number, telefone),
     /* Enquanto o pedido esta ativo, revalida sozinho para o cliente ver o
        status mudar sem precisar atualizar a pagina. Mais frequente durante
        "aguardando pagamento": e o momento em que a pessoa esta com o app
@@ -89,10 +200,10 @@ function OrderDetail({ number }: { number: string }) {
   });
 
   const cancel = useMutation({
-    mutationFn: (reason: string) => api.cancelOrder(number, reason),
+    mutationFn: (reason: string) => api.cancelOrder(number, telefone, reason),
     onSuccess: () => {
       setShowCancel(false);
-      void queryClient.invalidateQueries({ queryKey: ['order', number] });
+      void queryClient.invalidateQueries({ queryKey: ['order', number, telefone] });
     },
   });
 
@@ -103,11 +214,11 @@ function OrderDetail({ number }: { number: string }) {
       <EmptyState
         icon="🔍"
         title="Pedido não encontrado"
-        description={`Não achamos o pedido ${number}. Confira o número.`}
+        description={`Não encontramos o pedido ${number} com esse WhatsApp. Confira os dados e tente de novo.`}
         action={
-          <Link to="/pedido">
-            <Button variant="contorno">Buscar outro</Button>
-          </Link>
+          <Button variant="contorno" onClick={onTelefoneInvalido}>
+            Tentar de novo
+          </Button>
         }
       />
     );

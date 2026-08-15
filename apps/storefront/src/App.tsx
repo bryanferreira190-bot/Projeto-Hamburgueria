@@ -7,6 +7,7 @@ import { CartDrawer } from './features/cart/CartDrawer';
 import { MenuPage } from './features/catalog/MenuPage';
 import { CheckoutPage } from './features/checkout/CheckoutPage';
 import { TrackPage } from './features/order/TrackPage';
+import { PrivacidadePage } from './features/privacidade/PrivacidadePage';
 
 /**
  * A area de administracao carrega sob demanda: quem entra na loja para
@@ -40,6 +41,7 @@ export function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/pedido" element={<TrackPage />} />
               <Route path="/pedido/:number" element={<TrackPage />} />
+              <Route path="/privacidade" element={<PrivacidadePage />} />
               <Route
                 path="/admin"
                 element={
@@ -81,6 +83,14 @@ function Footer() {
         <p className="titulo-display mb-1 text-base text-white">Adventure Burguer</p>
         <p>Hamburgueria artesanal desde 2018 · Itu/SP</p>
         <p className="mt-3">Feito com 🔥 e muito cheddar.</p>
+
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-cinza-2/80">
+          <span aria-hidden>🔒</span>
+          Seus dados estão protegidos, conforme a{' '}
+          <Link to="/privacidade" className="underline hover:text-amarelo">
+            Política de Privacidade
+          </Link>
+        </p>
 
         {/* Entrada discreta para quem administra: fica no rodape, sem
             destaque, e a rota so abre nada util sem login. O sigilo nao

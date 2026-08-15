@@ -133,6 +133,19 @@ function Layout() {
           <Route path="*" element={<Navigate to="/pedidos" replace />} />
         </Routes>
       </main>
+
+      <footer className="mx-auto max-w-7xl px-5 pb-6 text-center text-xs text-cinza-2/70">
+        <span aria-hidden>🔒</span> Dados de clientes tratados conforme a{' '}
+        <a
+          href="https://loja.impactdev.site/privacidade"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-amarelo"
+        >
+          Política de Privacidade
+        </a>{' '}
+        — acesso restrito a quem tem função no atendimento do pedido.
+      </footer>
     </div>
   );
 }

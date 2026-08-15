@@ -289,8 +289,14 @@ export class OrdersService {
    * de hoje e "A001" de semana passada sao pedidos diferentes. Por isso
    * pega sempre o mais recente: e o que a pessoa quase certamente quer
    * dizer ao digitar o numero que acabou de receber.
+   *
+   * EXIGE o telefone do pedido (ver trackOrderQuerySchema). Sem isso,
+   * numero + enumeracao ("A001", "A002"...) bastariam para ler nome,
+   * telefone e endereco de qualquer cliente. Numero errado e telefone
+   * errado devolvem exatamente o mesmo erro — nao da pra usar a resposta
+   * para descobrir se um numero de pedido existe.
    */
-  async findByNumber(number: string) {
+  async findByNumber(number: string, phone: string) {
     const store = await this.prisma.store.findFirst({ select: { id: true } });
     if (!store) throw new NotFoundException('Loja nao configurada');
 
@@ -307,7 +313,9 @@ export class OrdersService {
       },
     });
 
-    if (!order) throw new NotFoundException('Pedido nao encontrado');
+    if (!order || order.customer.phone !== phone) {
+      throw new NotFoundException('Pedido nao encontrado');
+    }
     return toOrderDto(order);
   }
 
@@ -447,16 +455,20 @@ export class OrdersService {
    * Cancelamento pelo cliente, permitido apenas antes do preparo.
    *
    * Mesmo cuidado de findByNumber: o numero repete a cada dia, entao pega
-   * sempre o pedido mais recente com esse numero.
+   * sempre o pedido mais recente com esse numero. E MESMA EXIGENCIA de
+   * telefone — sem ela, bastaria adivinhar/enumerar o numero do dia para
+   * cancelar o pedido de outra pessoa.
    */
-  async cancelByCustomer(number: string, reason: string) {
+  async cancelByCustomer(number: string, phone: string, reason: string) {
     const order = await this.prisma.order.findFirst({
       where: { number: number.toUpperCase() },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, status: true },
+      select: { id: true, status: true, customer: { select: { phone: true } } },
     });
 
-    if (!order) throw new NotFoundException('Pedido nao encontrado');
+    if (!order || order.customer.phone !== phone) {
+      throw new NotFoundException('Pedido nao encontrado');
+    }
 
     if (isTerminalStatus(order.status)) {
       throw new ConflictException('Este pedido ja foi finalizado.');
@@ -545,7 +557,8 @@ function toOrderDto(order: OrderWithRelations) {
 
     customer: {
       name: order.customer.name,
-      /* Telefone parcialmente mascarado na resposta publica. */
+      /* So chega aqui quem ja provou saber o telefone do pedido — ver o
+         findByNumber/cancelByCustomer que chamam toOrderDto. */
       phone: order.customer.phone,
     },
 
