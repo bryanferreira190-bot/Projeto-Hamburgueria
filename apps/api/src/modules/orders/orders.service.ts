@@ -15,6 +15,7 @@ import {
   isCardPayment,
   isOnlinePayment,
   isTerminalStatus,
+  type CreateManualOrderInput,
   type CreateOrderInput,
   type ListOrdersFilter,
 } from '@adventure/shared';
@@ -265,6 +266,126 @@ export class OrdersService {
     return this.findById(order.id);
   }
 
+  /**
+   * PEDIDO LANCADO NO BALCAO PELA COZINHA
+   *
+   * Caminho proprio, e nao um `create()` com campos opcionais, porque as
+   * regras sao praticamente opostas — e cada uma das diferencas abaixo
+   * seria um bug se o fluxo fosse compartilhado:
+   *
+   * - NAO checa horario de funcionamento. Se ha alguem no balcao pedindo,
+   *   a loja esta aberta de fato; recusar a venda porque a agenda diz que
+   *   fechou seria o sistema discutindo com a realidade e perdendo
+   *   dinheiro.
+   * - NAO aplica pedido minimo: minimo existe para nao valer a pena
+   *   mandar entregador, e aqui nao sai entregador nenhum.
+   * - NAO cria cobranca no Mercado Pago. O dinheiro entra na mao ali; o
+   *   metodo de pagamento e so registro para o fechamento do caixa.
+   * - Ja nasce CONFIRMED: nao ha pagamento online a esperar.
+   * - Cliente e opcional (ver customerId no schema).
+   */
+  async createManual(input: CreateManualOrderInput, adminId: string) {
+    const store = await this.prisma.store.findFirst();
+    if (!store) throw new NotFoundException('Loja nao configurada');
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      /* Mesmo servico de preco do site: o balcao manda o QUE foi pedido,
+         nunca quanto custa. Preco vem sempre do banco. */
+      const priced = await this.pricing.price(tx, {
+        storeId: store.id,
+        items: input.items,
+        deliveryFeeCents: 0,
+      });
+
+      if (
+        input.changeForCents !== undefined &&
+        input.changeForCents < priced.totalCents
+      ) {
+        throw new BadRequestException(
+          `O valor recebido (${formatBRL(input.changeForCents)}) e menor que o total (${formatBRL(priced.totalCents)}).`,
+        );
+      }
+
+      /* So vira Customer quem deixou telefone — e o telefone que
+         identifica o cliente. Com nome apenas, o nome fica no proprio
+         pedido (manualCustomerName) e nenhum cadastro e criado. */
+      const customerId = input.customerPhone
+        ? (
+            await tx.customer.upsert({
+              where: { storeId_phone: { storeId: store.id, phone: input.customerPhone } },
+              update: {
+                lastOrderAt: new Date(),
+                ...(input.customerName ? { name: input.customerName } : {}),
+              },
+              create: {
+                storeId: store.id,
+                phone: input.customerPhone,
+                name: input.customerName ?? null,
+                lastOrderAt: new Date(),
+              },
+            })
+          ).id
+        : null;
+
+      const hoje = hojeNoFusoDaLoja();
+
+      return tx.order.create({
+        data: {
+          storeId: store.id,
+          number: await this.nextOrderNumber(tx, store.id, hoje),
+          orderDate: hoje,
+          customerId,
+          isManual: true,
+          type: OrderType.PICKUP,
+          status: OrderStatus.CONFIRMED,
+          confirmedAt: new Date(),
+          subtotalCents: priced.subtotalCents,
+          deliveryFeeCents: 0,
+          discountCents: priced.discountCents,
+          totalCents: priced.totalCents,
+          paymentMethod: input.paymentMethod,
+          changeForCents: input.changeForCents ?? null,
+          notes: input.notes ?? null,
+          /* Com telefone o nome foi para o Customer no upsert acima; sem
+             telefone ele so tem este lugar para existir. */
+          manualCustomerName: input.customerPhone ? null : (input.customerName ?? null),
+
+          items: {
+            create: priced.items.map((item) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unitPriceCents: item.unitPriceCents,
+              optionsPriceCents: item.optionsPriceCents,
+              totalCents: item.totalCents,
+              notes: item.notes ?? null,
+              options: {
+                create: item.options.map((option) => ({
+                  optionId: option.optionId,
+                  optionName: option.optionName,
+                  priceCents: option.priceCents,
+                })),
+              },
+            })),
+          },
+
+          statusHistory: {
+            create: {
+              toStatus: OrderStatus.CONFIRMED,
+              reason: 'Pedido lancado no balcao',
+              /* Quem bateu a venda: e dinheiro entrando na mao, entao
+                 precisa ficar registrado quem registrou. */
+              changedByAdminId: adminId,
+            },
+          },
+        },
+      });
+    });
+
+    this.logger.log(`Pedido ${order.number} lancado no balcao — ${formatBRL(order.totalCents)}`);
+    return this.findById(order.id);
+  }
+
   async findById(id: string) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -313,7 +434,9 @@ export class OrdersService {
       },
     });
 
-    if (!order || order.customer.phone !== phone) {
+    /* Pedido de balcao sem telefone nao tem cliente e, portanto, nao tem
+       como ser acompanhado publicamente — nao ha o que conferir contra. */
+    if (!order || order.customer?.phone !== phone) {
       throw new NotFoundException('Pedido nao encontrado');
     }
     return toOrderDto(order);
@@ -466,7 +589,7 @@ export class OrdersService {
       select: { id: true, status: true, customer: { select: { phone: true } } },
     });
 
-    if (!order || order.customer.phone !== phone) {
+    if (!order || order.customer?.phone !== phone) {
       throw new NotFoundException('Pedido nao encontrado');
     }
 
@@ -555,12 +678,26 @@ function toOrderDto(order: OrderWithRelations) {
     status: order.status,
     createdAt: order.createdAt,
 
-    customer: {
-      name: order.customer.name,
-      /* So chega aqui quem ja provou saber o telefone do pedido — ver o
-         findByNumber/cancelByCustomer que chamam toOrderDto. */
-      phone: order.customer.phone,
-    },
+    isManual: order.isManual,
+
+    /**
+     * NULO em pedido de balcao sem telefone — nao ha cadastro de cliente
+     * nenhum por tras dele (ver customerId no schema). Quem consome isto
+     * precisa tratar a ausencia; e por isso que e `null` inteiro, e nao
+     * um objeto com campos vazios que passaria despercebido.
+     *
+     * Quando existe, so chega aqui quem ja provou saber o telefone do
+     * pedido — ver findByNumber/cancelByCustomer.
+     */
+    customer: order.customer
+      ? { name: order.customer.name, phone: order.customer.phone }
+      : null,
+
+    /* Nome dito no balcao por quem nao deixou telefone. Fica fora de
+       `customer` de proposito: nao ha cliente cadastrado, e fingir que ha
+       levaria alguem a tentar mandar WhatsApp para um telefone que nao
+       existe. */
+    manualCustomerName: order.manualCustomerName,
 
     items: order.items.map((item) => ({
       productName: item.productName,

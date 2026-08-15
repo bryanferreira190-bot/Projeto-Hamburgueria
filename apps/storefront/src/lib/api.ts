@@ -141,7 +141,13 @@ export interface Order {
   type: 'DELIVERY' | 'PICKUP';
   status: string;
   createdAt: string;
-  customer: { name: string | null; phone: string };
+  /**
+   * Nulo em pedido de balcao sem telefone. Na pratica a loja nunca recebe
+   * um desses — o acompanhamento exige conferir o telefone, e um pedido
+   * sem cliente nao tem telefone com que conferir — mas o tipo reflete a
+   * API em vez de mentir.
+   */
+  customer: { name: string | null; phone: string } | null;
   items: OrderItemResponse[];
   subtotalCents: number;
   deliveryFeeCents: number;

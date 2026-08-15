@@ -10,7 +10,7 @@ import {
   type OrderType,
   type PaymentMethod,
 } from '@adventure/shared';
-import { ApiError, api, type OrderRow } from '../../lib/api';
+import { ApiError, api, nomeDoCliente, type OrderRow } from '../../lib/api';
 import { Button, Card, Input, Spinner, Vazio } from '../../components/ui';
 import { DadosDoCliente } from '../../components/DadosDoCliente';
 import { cx } from '../../lib/cx';
@@ -237,7 +237,12 @@ function CartaoPedido({
             <span className="titulo-display text-xl text-amarelo">{pedido.number}</span>
           </DadosDoCliente>
           <p className="text-xs text-cinza">
-            {pedido.type === 'DELIVERY' ? '🛵 Entrega' : '🏪 Retirada'} · {pedido.totalFormatted}
+            {pedido.isManual
+              ? '🧾 Balcão'
+              : pedido.type === 'DELIVERY'
+                ? '🛵 Entrega'
+                : '🏪 Retirada'}{' '}
+            · {pedido.totalFormatted}
           </p>
         </div>
         <span
@@ -250,7 +255,7 @@ function CartaoPedido({
 
       <div className="mb-2">
         <DadosDoCliente pedido={pedido}>
-          <span className="text-sm font-semibold">{pedido.customer.name ?? 'Sem nome'}</span>
+          <span className="text-sm font-semibold">{nomeDoCliente(pedido) ?? 'Sem nome'}</span>
         </DadosDoCliente>
       </div>
 
@@ -353,7 +358,10 @@ function Historico({ pedidos }: { pedidos: OrderRow[] }) {
               </td>
               <td className="py-2">
                 <DadosDoCliente pedido={pedido}>
-                  <span className="text-cinza">{pedido.customer.name ?? 'Sem nome'}</span>
+                  <span className="text-cinza">
+                    {pedido.isManual && <span aria-hidden>🧾 </span>}
+                    {nomeDoCliente(pedido) ?? 'Sem nome'}
+                  </span>
                 </DadosDoCliente>
               </td>
               <td className="py-2 text-xs whitespace-nowrap">

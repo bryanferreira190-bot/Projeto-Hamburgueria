@@ -107,13 +107,55 @@ export type LoginResponse =
       expiresIn: number;
     };
 
+export interface Option {
+  id: string;
+  name: string;
+  priceCents: number;
+  priceFormatted: string;
+}
+
+export interface OptionGroup {
+  id: string;
+  name: string;
+  /** minSelect > 0 torna o grupo obrigatorio. */
+  minSelect: number;
+  maxSelect: number;
+  options: Option[];
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  priceCents: number;
+  priceFormatted: string;
+  isAvailable: boolean;
+  optionGroups: OptionGroup[];
+}
+
+export interface Category {
+  id: string;
+  slug: string;
+  name: string;
+  products: Product[];
+}
+
 export interface OrderRow {
   id: string;
   number: string;
   type: 'DELIVERY' | 'PICKUP';
   status: string;
   createdAt: string;
-  customer: { name: string | null; phone: string };
+  /** Lancado a mao no balcao, e nao recebido pelo site. */
+  isManual: boolean;
+  /**
+   * NULO no pedido de balcao sem telefone — nao ha cliente cadastrado por
+   * tras dele. Use `nomeDoCliente()` para exibir, que ja resolve isto
+   * junto com manualCustomerName.
+   */
+  customer: { name: string | null; phone: string } | null;
+  /** Nome dito no balcao por quem nao deixou telefone. */
+  manualCustomerName: string | null;
   items: {
     productName: string;
     quantity: number;
@@ -142,6 +184,37 @@ export interface OrderRow {
     reference: string | null;
   } | null;
   notes: string | null;
+}
+
+/**
+ * Nome que a cozinha ve e grita quando o pedido fica pronto.
+ *
+ * Um pedido de balcao sem telefone nao tem Customer nenhum, entao o nome
+ * so existe em `manualCustomerName`; um pedido do site sempre tem
+ * Customer. Concentrar essa escolha aqui evita a mesma cadeia de `??`
+ * espalhada por cada tela que mostra pedido.
+ */
+export function nomeDoCliente(pedido: {
+  customer: { name: string | null } | null;
+  manualCustomerName: string | null;
+}): string | null {
+  return pedido.customer?.name ?? pedido.manualCustomerName ?? null;
+}
+
+export interface ManualOrderItem {
+  productId: string;
+  quantity: number;
+  optionIds: string[];
+  notes?: string;
+}
+
+export interface ManualOrderPayload {
+  items: ManualOrderItem[];
+  paymentMethod: string;
+  customerName?: string;
+  customerPhone?: string;
+  notes?: string;
+  changeForCents?: number;
 }
 
 /* ---------------- Chamadas ---------------- */
@@ -193,6 +266,13 @@ export const api = {
     if (params.search) query.set('search', params.search);
     return request<{ orders: OrderRow[]; nextCursor: string | null }>(`/orders?${query}`);
   },
+
+  /* O cardapio e publico; a rota aceita a chamada autenticada do painel
+     do mesmo jeito, entao nao ha endpoint proprio a manter. */
+  menu: () => request<Category[]>('/catalog/menu'),
+
+  createManualOrder: (payload: ManualOrderPayload) =>
+    request<OrderRow>('/orders/manual', { method: 'POST', body: payload }),
 
   updateOrderStatus: (id: string, status: string, reason?: string) =>
     request<OrderRow>(`/orders/${id}/status`, {

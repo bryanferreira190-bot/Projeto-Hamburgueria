@@ -207,6 +207,7 @@ export class ReportsService {
       'tipo',
       'cliente',
       'telefone',
+      'origem',
       'bairro',
       'subtotal',
       'entrega',
@@ -220,8 +221,11 @@ export class ReportsService {
       order.createdAt.toISOString(),
       order.status,
       order.type,
-      order.customer.name ?? '',
-      order.customer.phone,
+      /* Pedido de balcao pode nao ter cliente cadastrado; nesse caso o
+         nome dito no balcao e tudo que existe, e telefone fica vazio. */
+      order.customer?.name ?? order.manualCustomerName ?? '',
+      order.customer?.phone ?? '',
+      order.isManual ? 'balcao' : 'site',
       order.addressDistrict ?? '',
       cents(order.subtotalCents),
       cents(order.deliveryFeeCents),

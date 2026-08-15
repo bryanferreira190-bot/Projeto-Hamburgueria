@@ -5,6 +5,55 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-15 — Pedido de balcão: cliente opcional e fluxo próprio
+
+A cozinha ganhou a aba **Balcão** para lançar a venda feita
+presencialmente. Duas decisões estruturais por trás disso:
+
+**`Order.customerId` virou opcional.** Quem compra no balcão quase nunca
+deixa telefone — e telefone é justamente a identidade do `Customer`
+(`@@unique([storeId, phone])`). As alternativas eram piores: exigir
+telefone faria a cozinha inventar número para conseguir fechar a venda, e
+um "cliente Balcão" fixo e compartilhado colocaria um telefone falso numa
+coluna de telefone, que alguém uma hora usaria para mandar mensagem.
+Pedido de balcão sem telefone simplesmente **não tem cliente**, e o DTO
+devolve `customer: null` inteiro — e não um objeto com campos vazios, que
+passaria despercebido em quem consome.
+
+**`manualCustomerName` é uma coluna separada, não `notes`.** Sem
+`Customer`, o nome dito no balcão ("João") precisa morar em algum lugar —
+mas em `notes` ele se misturaria com observação do pedido ("sem cebola"),
+que é outra coisa e aparece em outro lugar da tela da cozinha. Com
+telefone informado, o nome vai para o `Customer` e a coluna fica nula;
+`nomeDoCliente()` no painel concentra essa escolha num lugar só.
+
+**`createManual()` é um caminho próprio, não `create()` com campos
+opcionais.** Cada diferença abaixo seria um bug se o fluxo fosse
+compartilhado:
+
+- **não checa horário de funcionamento** — se há alguém no balcão
+  pedindo, a loja está aberta de fato; recusar a venda porque a agenda diz
+  que fechou seria o sistema discutindo com a realidade e perdendo
+  dinheiro;
+- **não aplica pedido mínimo** — mínimo existe para valer a pena mandar
+  entregador, e aqui não sai entregador;
+- **não cria cobrança no Mercado Pago**, nem para PIX (no balcão é o QR
+  fixo da loja). O dinheiro entra na mão ali; o campo só registra **como**
+  entrou, para o fechamento do caixa;
+- **já nasce `CONFIRMED`** — não há pagamento online a esperar.
+
+O preço continua vindo do servidor: o balcão manda o que foi pedido,
+nunca quanto custa — mesma regra do site. E o `changedByAdminId` do
+primeiro `OrderStatusHistory` registra quem bateu a venda, que é dinheiro
+entrando na mão e precisa de responsável.
+
+**Reaproveita `CASH_ON_DELIVERY`/`CARD_ON_DELIVERY`** em vez de criar
+valores novos no enum. Os rótulos dizem "na entrega", mas o painel já
+mostra o pedido como 🧾 Balcão, e a alternativa (migração de enum no
+Postgres + rótulos + `isOnlinePayment` + storefront) custaria bem mais do
+que resolve. Se um dia o relatório precisar separar "dinheiro no balcão"
+de "dinheiro na entrega", a coluna `isManual` já dá essa quebra.
+
 ## 2026-08-15 — Rastreio de pedido exigindo telefone; adequação LGPD
 
 **Vazamento.** `GET /orders/track/:number` era `@Public()` sem

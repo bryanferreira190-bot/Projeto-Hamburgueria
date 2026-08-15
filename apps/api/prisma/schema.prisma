@@ -423,11 +423,28 @@ model Order {
   /// codigo crescer sem limite ao longo dos anos.
   orderDate DateTime @db.Date
 
-  customerId String @db.Uuid
+  /// NULO em pedido de balcao lancado pela cozinha. Quem compra no balcao
+  /// nem sempre deixa telefone, e telefone e justamente a identidade do
+  /// Customer (@@unique([storeId, phone])) — exigir um so para registrar a
+  /// venda faria a cozinha inventar numero, sujando a base de clientes com
+  /// dado falso. Ver createManual() e DECISOES.md.
+  customerId String? @db.Uuid
   couponId   String? @db.Uuid
 
   type   OrderType
   status OrderStatus @default(PENDING_PAYMENT)
+
+  /// Pedido lancado a mao no balcao, e nao recebido pelo site. Muda o que
+  /// e esperado dele: pode nao ter cliente, ja nasce confirmado e o
+  /// pagamento acontece ali na hora, fora do Mercado Pago.
+  isManual Boolean @default(false)
+
+  /// Nome dito no balcao por quem NAO deixou telefone — sem telefone nao
+  /// ha Customer para guardar isso (ver customerId acima), e e por este
+  /// nome que a cozinha chama a pessoa quando o pedido fica pronto.
+  /// Quando o telefone foi informado, o nome vai para o Customer e este
+  /// campo fica nulo.
+  manualCustomerName String? @db.VarChar(120)
 
   // ----- Valores, todos em centavos, todos calculados no servidor -----
   subtotalCents    Int
@@ -466,7 +483,7 @@ model Order {
   updatedAt DateTime @updatedAt
 
   store         Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customer      Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
   coupon        Coupon?              @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items         OrderItem[]
   statusHistory OrderStatusHistory[]

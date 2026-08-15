@@ -103,6 +103,48 @@ export const createOrderSchema = z
   });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
+/**
+ * PEDIDO LANCADO NO BALCAO PELA COZINHA
+ *
+ * Nao e o mesmo formulario do site com outro nome — as regras sao outras,
+ * porque a venda ja esta acontecendo na frente do atendente:
+ *
+ * - cliente e OPCIONAL. Quem compra no balcao nem sempre quer dar nome, e
+ *   quase nunca da telefone. Exigir faria a cozinha inventar dado.
+ * - pagamento sai da lista de balcao (dinheiro / maquininha / PIX no QR
+ *   da loja). Nada disso passa pelo Mercado Pago: o dinheiro entra ali na
+ *   hora, e o campo so registra COMO entrou, para o fechamento do caixa.
+ * - nao ha endereco, taxa nem cupom: e retirada no balcao.
+ */
+export const MANUAL_PAYMENT_METHODS: readonly PaymentMethod[] = [
+  PaymentMethod.CASH_ON_DELIVERY,
+  PaymentMethod.CARD_ON_DELIVERY,
+  PaymentMethod.PIX,
+];
+
+export const createManualOrderSchema = z
+  .object({
+    items: z.array(orderItemInputSchema).min(1, 'Adicione ao menos um item'),
+    paymentMethod: z
+      .nativeEnum(PaymentMethod)
+      .refine((metodo) => MANUAL_PAYMENT_METHODS.includes(metodo), {
+        message: 'Forma de pagamento invalida para pedido no balcao',
+      }),
+    /* So para chamar o cliente quando ficar pronto. */
+    customerName: z.string().trim().min(2, 'Nome muito curto').max(120).optional(),
+    customerPhone: phoneSchema.optional(),
+    notes: z.string().trim().max(300).optional(),
+    changeForCents: centsSchema.optional(),
+  })
+  .refine(
+    (pedido) =>
+      pedido.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY ||
+      pedido.changeForCents === undefined ||
+      pedido.changeForCents > 0,
+    { message: 'Informe um valor valido para o troco', path: ['changeForCents'] },
+  );
+export type CreateManualOrderInput = z.infer<typeof createManualOrderSchema>;
+
 export const updateOrderStatusSchema = z.object({
   status: z.nativeEnum(OrderStatus),
   reason: z.string().trim().max(200).optional(),

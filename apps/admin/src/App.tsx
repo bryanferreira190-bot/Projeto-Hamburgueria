@@ -5,6 +5,7 @@ import { hasRoleLevel, AdminRole } from '@adventure/shared';
 import { Button, Spinner } from './components/ui';
 import { cx } from './lib/cx';
 import { LoginPage } from './features/auth/LoginPage';
+import { BalcaoPage } from './features/balcao/BalcaoPage';
 import { OrdersPage } from './features/orders/OrdersPage';
 import { api } from './lib/api';
 import { useAuth } from './lib/auth';
@@ -100,6 +101,7 @@ function Layout() {
 
           <nav className="flex gap-1">
             <Aba para="/pedidos">Pedidos</Aba>
+            <Aba para="/balcao">Balcão</Aba>
             {podeVerRelatorios && <Aba para="/dashboard">Dashboard</Aba>}
           </nav>
 
@@ -118,6 +120,7 @@ function Layout() {
       <main className="mx-auto max-w-7xl px-5 py-6">
         <Routes>
           <Route path="/pedidos" element={<OrdersPage />} />
+          <Route path="/balcao" element={<BalcaoPage />} />
           <Route
             path="/dashboard"
             element={

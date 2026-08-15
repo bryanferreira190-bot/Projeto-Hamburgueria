@@ -14,11 +14,13 @@ import { Throttle } from '@nestjs/throttler';
 import {
   AdminRole,
   cancelOrderSchema,
+  createManualOrderSchema,
   createOrderSchema,
   listOrdersFilterSchema,
   trackOrderQuerySchema,
   updateOrderStatusSchema,
   type CancelOrderInput,
+  type CreateManualOrderInput,
   type CreateOrderInput,
   type ListOrdersFilter,
   type TrackOrderQuery,
@@ -79,6 +81,23 @@ export class OrdersController {
   }
 
   /* ---------------- Rotas administrativas ---------------- */
+
+  /**
+   * Pedido lancado no balcao pela cozinha.
+   *
+   * Rota separada da publica de proposito: aqui quem esta pedindo esta na
+   * frente do atendente, entao horario de funcionamento, pedido minimo e
+   * cobranca online nao se aplicam — ver createManual().
+   */
+  @RequireRole(AdminRole.KITCHEN)
+  @Post('manual')
+  @HttpCode(HttpStatus.CREATED)
+  createManual(
+    @Body(new ZodValidationPipe(createManualOrderSchema)) body: CreateManualOrderInput,
+    @CurrentAdmin('sub') adminId: string,
+  ) {
+    return this.orders.createManual(body, adminId);
+  }
 
   @RequireRole(AdminRole.KITCHEN)
   @Get()

@@ -6,7 +6,7 @@ import {
   isOnlinePayment,
   type PaymentMethod,
 } from '@adventure/shared';
-import type { OrderRow } from '../lib/api';
+import { nomeDoCliente, type OrderRow } from '../lib/api';
 import { cx } from '../lib/cx';
 import { formatarTelefone, linkDoWhatsApp } from '../lib/telefone';
 
@@ -133,14 +133,22 @@ export function DadosDoCliente({ pedido, children }: { pedido: OrderRow; childre
           <div
             ref={ficha}
             role="dialog"
-            aria-label={`Dados de ${pedido.customer.name ?? 'cliente sem nome'}`}
+            aria-label={`Dados de ${nomeDoCliente(pedido) ?? 'cliente sem nome'}`}
             onMouseEnter={abrir}
             onMouseLeave={fecharEmBreve}
             style={{ top: posicao.top, left: posicao.left, width: LARGURA }}
             className="fixed z-50 space-y-2.5 rounded-xl border border-borda bg-preto-3 p-3 text-left shadow-2xl"
           >
             <Cabecalho pedido={pedido} />
-            <BotaoDoWhatsApp pedido={pedido} />
+            {/* Pedido de balcao pode nao ter cliente cadastrado — sem
+                telefone nao ha conversa para abrir. */}
+            {pedido.customer ? (
+              <BotaoDoWhatsApp pedido={pedido} telefone={pedido.customer.phone} />
+            ) : (
+              <p className="rounded-lg border border-borda bg-carvao px-2.5 py-2 text-xs text-cinza-2">
+                Pedido de balcão sem telefone — chame pelo número {pedido.number}.
+              </p>
+            )}
             {pedido.address && <Endereco endereco={pedido.address} />}
             <Pagamento pedido={pedido} />
             {pedido.notes && (
@@ -165,10 +173,11 @@ function Cabecalho({ pedido }: { pedido: OrderRow }) {
 
   return (
     <div>
-      <p className="text-sm font-bold text-white">{pedido.customer.name ?? 'Sem nome'}</p>
+      <p className="text-sm font-bold text-white">{nomeDoCliente(pedido) ?? 'Sem nome'}</p>
       <p className="text-xs text-cinza-2">
-        Pedido {pedido.number} · {pedido.type === 'DELIVERY' ? '🛵 Entrega' : '🏪 Retirada'} ·{' '}
-        {quando}
+        Pedido {pedido.number} ·{' '}
+        {pedido.isManual ? '🧾 Balcão' : pedido.type === 'DELIVERY' ? '🛵 Entrega' : '🏪 Retirada'}{' '}
+        · {quando}
       </p>
     </div>
   );
@@ -179,12 +188,12 @@ function Cabecalho({ pedido }: { pedido: OrderRow }) {
  * digitar nem lembrar o numero, que e justamente o que a pessoa do outro
  * lado precisa ouvir primeiro para saber do que se trata.
  */
-function BotaoDoWhatsApp({ pedido }: { pedido: OrderRow }) {
+function BotaoDoWhatsApp({ pedido, telefone }: { pedido: OrderRow; telefone: string }) {
   const mensagem = `Ola! Aqui e da Adventure Burguer, sobre o seu pedido ${pedido.number}.`;
 
   return (
     <a
-      href={linkDoWhatsApp(pedido.customer.phone, mensagem)}
+      href={linkDoWhatsApp(telefone, mensagem)}
       target="_blank"
       rel="noreferrer"
       className={cx(
@@ -193,7 +202,7 @@ function BotaoDoWhatsApp({ pedido }: { pedido: OrderRow }) {
       )}
     >
       <span aria-hidden>💬</span>
-      {formatarTelefone(pedido.customer.phone)}
+      {formatarTelefone(telefone)}
     </a>
   );
 }
