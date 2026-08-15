@@ -431,6 +431,14 @@ export class OrdersService {
       }
     });
 
+    /* Fora da transacao de proposito: chamada de rede nao deveria acontecer
+       com uma transacao de banco aberta (mesmo motivo do PIX em
+       PaymentsService). O pedido ja esta CANCELED nesse ponto -- a cozinha
+       para na hora mesmo que o estorno em si demore ou falhe. */
+    if (nextStatus === OrderStatus.CANCELED) {
+      await this.payments.refundIfPaid(orderId, order.number);
+    }
+
     this.logger.log(`Pedido ${order.number}: ${order.status} -> ${nextStatus}`);
     return this.findById(orderId);
   }

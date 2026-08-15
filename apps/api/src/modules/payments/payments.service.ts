@@ -390,6 +390,46 @@ export class PaymentsService {
   }
 
   /**
+   * Estorna o pagamento do pedido, se houver um ja aprovado.
+   *
+   * Chamado quando um pedido pago e cancelado. Pedido com PIX ainda
+   * pendente ou pago na entrega (sem Payment nenhum) nao tem o que
+   * estornar — so sai sem fazer nada.
+   *
+   * Falha ao estornar NAO impede o cancelamento (quem chama ja commitou
+   * isso antes de chegar aqui) — e melhor a cozinha parar na hora e o
+   * estorno ser resolvido na mao do que o pedido ficar preso porque a
+   * Mercado Pago esta fora do ar. Fica registrado bem alto no log,
+   * mesmo padrao da "COBRANCA ORFA" acima, para conciliacao manual.
+   */
+  async refundIfPaid(orderId: string, orderNumber: string): Promise<void> {
+    const payment = await this.prisma.payment.findFirst({
+      where: { orderId, status: PaymentStatus.PAID },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!payment?.externalId) return;
+
+    try {
+      await this.mercadoPago.refundOrder(payment.externalId);
+    } catch (error) {
+      this.logger.error(
+        `ESTORNO FALHOU: pedido ${orderNumber} foi cancelado mas o pagamento ` +
+          `${payment.externalId} (R$ ${(payment.amountCents / 100).toFixed(2)}) nao foi estornado ` +
+          `na Mercado Pago. Estorne manualmente pelo painel deles.`,
+        error as Error,
+      );
+      return;
+    }
+
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: PaymentStatus.REFUNDED, refundedAt: new Date() },
+    });
+
+    this.logger.log(`Pagamento ${payment.externalId} do pedido ${orderNumber} estornado.`);
+  }
+
+  /**
    * So mexe no pedido se ele ainda estiver esperando esse pagamento —
    * protege contra webhook fora de ordem ou reenviado depois que o
    * status ja mudou por outro caminho (ex.: admin confirmou na mao).

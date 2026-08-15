@@ -5,6 +5,42 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-15 — Cancelar pedido pago não estornava na Mercado Pago
+
+**Sintoma.** Cancelei o pedido A003 (pago no cartão, R$ 45,00) pelo
+painel para testar. O pedido virou `CANCELED` no banco normalmente, mas
+consultando direto na Mercado Pago a cobrança continuava
+`processed / accredited` — sem nenhum estorno. O dinheiro ficaria preso
+com o cliente cobrado e a loja sem devolver.
+
+**Causa raiz.** `OrdersService.updateStatus()` sempre só atualizou o
+`status` do pedido e o histórico — nunca teve nenhuma chamada à Mercado
+Pago. Fazia sentido para pedido ainda não pago (PIX pendente, dinheiro/
+maquininha na entrega — não há o que estornar), mas pedido já pago com
+cartão ou PIX ficava sem estorno automático nenhum, silenciosamente.
+
+**Correção.** `PaymentsService.refundIfPaid(orderId, orderNumber)`: busca
+o `Payment` mais recente do pedido com `status: PAID`; se não houver
+(pedido nunca foi cobrado pela Mercado Pago), não faz nada. Se houver,
+chama `MercadoPagoService.refundOrder()` (`POST /v1/orders/{id}/refund`
+da Orders API, via SDK — estorno total, sem corpo) e marca o `Payment`
+como `REFUNDED`. `OrdersService.updateStatus()` chama isso sempre que a
+transição é para `CANCELED`, **depois** de commitar a transação do banco
+(mesmo motivo do PIX em `PaymentsService`: chamada de rede não deveria
+acontecer com transação de banco aberta).
+
+**Falha no estorno não bloqueia o cancelamento.** Se a chamada à Mercado
+Pago falhar (fora do ar, timeout), o pedido já está `CANCELED` — é mais
+importante a cozinha parar na hora do que travar o cancelamento esperando
+a Mercado Pago responder. A falha fica registrada bem alto no log
+(`ESTORNO FALHOU: pedido ... nao foi estornado ... Estorne manualmente`)
+para conciliação manual, mesmo padrão da "COBRANÇA ÓRFÃ" já usado na
+criação do PIX.
+
+**Idempotência.** `refundOrder()` usa `idempotencyKey: refund-${externalId}`
+— um retry (nosso ou de rede) devolve o mesmo estorno em vez de tentar
+estornar duas vezes a mesma cobrança.
+
 ## 2026-08-15 — Número do pedido: unicidade escopada por dia, não global
 
 **Sintoma.** `POST /orders` dava 500 ("erro inesperado") de forma

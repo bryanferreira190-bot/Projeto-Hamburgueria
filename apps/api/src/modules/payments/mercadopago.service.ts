@@ -185,6 +185,25 @@ export class MercadoPagoService {
   }
 
   /**
+   * Estorna a cobranca inteira.
+   *
+   * Sem corpo na chamada, a API estorna TODAS as transacoes do pedido —
+   * suficiente aqui, ja que cada pedido nosso gera uma unica cobranca no
+   * Mercado Pago (nunca parcial).
+   */
+  async refundOrder(externalId: string): Promise<OrderResponse> {
+    return this.order.refund({
+      id: externalId,
+      requestOptions: {
+        /* Mesma chave sempre que este pagamento for estornado: um retry
+           (nosso ou de rede) devolve o mesmo estorno em vez de tentar
+           estornar duas vezes. */
+        idempotencyKey: `refund-${externalId}`,
+      },
+    });
+  }
+
+  /**
    * Confirma que a notificacao realmente veio do Mercado Pago.
    *
    * Sem isso, qualquer um que descobrisse a URL do webhook poderia mandar
