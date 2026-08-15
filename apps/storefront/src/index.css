@@ -29,12 +29,44 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* O preto de base fica no html, e nao no body, de proposito: o body
+       precisa ficar transparente para a camada de fundo abaixo aparecer
+       (um fundo opaco no body cobriria o proprio ::before dele). */
+    @apply bg-preto;
   }
 
   body {
-    @apply bg-preto text-white antialiased;
+    @apply text-white antialiased;
     font-family: var(--font-sans);
     line-height: 1.65;
+  }
+
+  /**
+   * FUNDO DE APETITE
+   *
+   * A foto de ingredientes, muito desfocada e quase transparente, so para
+   * o preto chapado nao ficar morto — a intencao e sentir, nao enxergar.
+   *
+   * Fica atras de tudo (`fixed` + z-index negativo, com o body
+   * transparente) e nao rola junto com a pagina, entao nao briga com a
+   * leitura do cardapio em nenhum momento da rolagem.
+   *
+   * Como a imagem e destruida pelo blur, ela NAO precisa de resolucao:
+   * qualquer coisa acima de ~1000px de largura e desperdicio de banda no
+   * celular do cliente.
+   */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: url('/fundo-cardapio.jpg') center / cover no-repeat;
+    /* O blur clareia/esvazia as beiradas; a escala joga essa borrada para
+       fora da tela em vez de deixar uma moldura visivel. */
+    transform: scale(1.08);
+    filter: blur(22px);
+    opacity: 0.12;
+    pointer-events: none;
   }
 
   ::selection {
