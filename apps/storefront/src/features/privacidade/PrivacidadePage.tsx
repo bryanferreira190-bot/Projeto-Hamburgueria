@@ -10,10 +10,6 @@ const ATUALIZADO_EM = '15 de agosto de 2026';
  * modelo. Ao mudar o que a loja coleta ou como usa os dados, atualize
  * este arquivo junto, e mude ATUALIZADO_EM.
  *
- * [CNPJ] esta marcado como pendente de proposito: nao existe nenhum CNPJ
- * cadastrado em lugar nenhum do projeto, e nao e algo que se deva
- * inventar. Preencha com o CNPJ real (ou CPF, se for pessoa fisica) antes
- * de considerar esta pagina publicada para valer.
  */
 export function PrivacidadePage() {
   return (
@@ -26,9 +22,9 @@ export function PrivacidadePage() {
       <Secao titulo="Quem trata os seus dados">
         <p>
           A <strong className="text-white">Adventure Burguer</strong>, hamburgueria localizada em
-          Av. da Paz Universal, 686 — Cidade Nova, Itu/SP, CEP 13308-125, CNPJ{' '}
-          <span className="text-amarelo">[CNPJ]</span>, é quem decide como e por que seus dados
-          pessoais são tratados ao usar este site (controladora, nos termos da LGPD).
+          Av. da Paz Universal, 686 — Cidade Nova, Itu/SP, CEP 13308-125, CNPJ 37.203.959/0001-34,
+          é quem decide como e por que seus dados pessoais são tratados ao usar este site
+          (controladora, nos termos da LGPD).
         </p>
       </Secao>
 
