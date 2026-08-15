@@ -64,8 +64,8 @@
     /* O blur clareia/esvazia as beiradas; a escala joga essa borrada para
        fora da tela em vez de deixar uma moldura visivel. */
     transform: scale(1.08);
-    filter: blur(22px);
-    opacity: 0.12;
+    filter: blur(10px);
+    opacity: 0.28;
     pointer-events: none;
   }
 
