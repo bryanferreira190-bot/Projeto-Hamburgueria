@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ORDER_STATUS_LABELS,
   OrderStatus,
   PAYMENT_METHOD_LABELS,
   formatBRL,
+  isOnlinePayment,
   nextStatusFor,
   type OrderType,
   type PaymentMethod,
 } from '@adventure/shared';
 import { ApiError, api, type OrderRow } from '../../lib/api';
 import { Button, Card, Input, Spinner, Vazio } from '../../components/ui';
+import { DadosDoCliente } from '../../components/DadosDoCliente';
 import { cx } from '../../lib/cx';
+import { destravarSom, tocarAvisoDePedido } from '../../lib/som';
+import { useAvisoDePedidoNovo } from './useAvisoDePedidoNovo';
 
 /** Colunas do painel de cozinha, na ordem em que o pedido caminha. */
 const COLUNAS: { status: OrderStatus; titulo: string; icone: string }[] = [
@@ -25,10 +29,28 @@ const COLUNAS: { status: OrderStatus; titulo: string; icone: string }[] = [
   { status: OrderStatus.READY, titulo: 'Prontos', icone: '🍔' },
 ];
 
+const CHAVE_DO_SOM = 'aviso-sonoro-de-pedido';
+
+/* Referencia estavel: `data?.orders ?? []` criaria um array novo a cada
+   render e faria o efeito do aviso rodar a toa o tempo todo. */
+const SEM_PEDIDOS: OrderRow[] = [];
+
+/** Pagar na entrega e o oposto de pagar pelo site — ver isOnlinePayment. */
+function ehPagamentoNaEntrega(metodo: string): boolean {
+  return !isOnlinePayment(metodo as PaymentMethod);
+}
+
+function rotuloDoPagamento(metodo: string): string {
+  return PAYMENT_METHOD_LABELS[metodo as PaymentMethod] ?? metodo;
+}
+
 export function OrdersPage() {
   const queryClient = useQueryClient();
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState<string | null>(null);
+  const [somAtivo, setSomAtivo] = useState(
+    () => localStorage.getItem(CHAVE_DO_SOM) !== 'desligado',
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ['orders', busca],
@@ -50,9 +72,35 @@ export function OrdersPage() {
     },
   });
 
+  const pedidos = data?.orders ?? SEM_PEDIDOS;
+
+  useAvisoDePedidoNovo(pedidos, somAtivo, isLoading || Boolean(busca));
+
+  /**
+   * O navegador so libera audio depois de alguma interacao com a pagina, e
+   * o aviso toca sozinho — quando o pedido chega pelo refetch, sem
+   * ninguem clicar. Entao o primeiro clique em qualquer lugar destrava o
+   * som para os avisos seguintes.
+   */
+  useEffect(() => {
+    if (!somAtivo) return;
+
+    const destravar = () => void destravarSom();
+    document.addEventListener('pointerdown', destravar, { once: true });
+    return () => document.removeEventListener('pointerdown', destravar);
+  }, [somAtivo]);
+
+  function alternarSom() {
+    const proximo = !somAtivo;
+    setSomAtivo(proximo);
+    localStorage.setItem(CHAVE_DO_SOM, proximo ? 'ligado' : 'desligado');
+    /* Ligar e um clique: aproveita para destravar o audio e ja deixa
+       ouvir como o aviso soa, em vez de descobrir no primeiro pedido. */
+    if (proximo) void tocarAvisoDePedido();
+  }
+
   if (isLoading) return <Spinner label="Carregando pedidos" />;
 
-  const pedidos = data?.orders ?? [];
   const emAndamento = pedidos.filter((pedido) =>
     COLUNAS.some((coluna) => coluna.status === pedido.status),
   );
@@ -69,12 +117,34 @@ export function OrdersPage() {
           )}
         </h1>
 
-        <Input
-          value={busca}
-          onChange={(event) => setBusca(event.target.value)}
-          placeholder="Buscar por número, nome ou telefone…"
-          className="max-w-xs"
-        />
+        <div className="flex flex-1 items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={alternarSom}
+            aria-pressed={somAtivo}
+            title={
+              somAtivo
+                ? 'Aviso sonoro ligado — clique para desligar'
+                : 'Aviso sonoro desligado — clique para ligar e ouvir'
+            }
+            className={cx(
+              'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2.5 text-xs font-bold transition-colors',
+              somAtivo
+                ? 'border-amarelo/40 bg-amarelo/10 text-amarelo'
+                : 'border-borda text-cinza-2 hover:text-cinza',
+            )}
+          >
+            <span aria-hidden>{somAtivo ? '🔔' : '🔕'}</span>
+            <span className="hidden sm:inline">Som</span>
+          </button>
+
+          <Input
+            value={busca}
+            onChange={(event) => setBusca(event.target.value)}
+            placeholder="Buscar por número, nome ou telefone…"
+            className="max-w-xs"
+          />
+        </div>
       </header>
 
       {erro && (
@@ -163,7 +233,9 @@ function CartaoPedido({
     >
       <header className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <p className="titulo-display text-xl text-amarelo">{pedido.number}</p>
+          <DadosDoCliente pedido={pedido}>
+            <span className="titulo-display text-xl text-amarelo">{pedido.number}</span>
+          </DadosDoCliente>
           <p className="text-xs text-cinza">
             {pedido.type === 'DELIVERY' ? '🛵 Entrega' : '🏪 Retirada'} · {pedido.totalFormatted}
           </p>
@@ -176,7 +248,11 @@ function CartaoPedido({
         </span>
       </header>
 
-      <p className="mb-2 text-sm font-semibold">{pedido.customer.name ?? 'Sem nome'}</p>
+      <div className="mb-2">
+        <DadosDoCliente pedido={pedido}>
+          <span className="text-sm font-semibold">{pedido.customer.name ?? 'Sem nome'}</span>
+        </DadosDoCliente>
+      </div>
 
       <ul className="mb-3 space-y-0.5 text-xs text-cinza">
         {pedido.items.map((item, index) => (
@@ -212,24 +288,22 @@ function CartaoPedido({
         </p>
       )}
 
-      {pedido.paymentMethod === 'CASH_ON_DELIVERY' || pedido.paymentMethod === 'CARD_ON_DELIVERY' ? (
+      {ehPagamentoNaEntrega(pedido.paymentMethod) ? (
         /* Pagamento na entrega nao passou pelo Mercado Pago — quem entrega
            precisa cobrar na hora. Por isso o destaque forte: e a unica
            informacao deste cartao em que um erro custa dinheiro de verdade
            saindo do bolso de quem entregou. */
         <p className="mb-3 flex items-center gap-1.5 rounded-lg border border-amarelo/40 bg-amarelo/10 px-2.5 py-1.5 text-xs font-bold text-amarelo">
           <span aria-hidden>{pedido.paymentMethod === 'CASH_ON_DELIVERY' ? '💵' : '🏧'}</span>
-          Cobrar na entrega — {PAYMENT_METHOD_LABELS[pedido.paymentMethod as PaymentMethod]}
-          {pedido.paymentMethod === 'CASH_ON_DELIVERY' && pedido.changeForCents !== null && (
+          Cobrar na entrega — {rotuloDoPagamento(pedido.paymentMethod)}
+          {pedido.changeForCents !== null && (
             <span className="font-normal text-amarelo/80">
               · troco para {formatBRL(pedido.changeForCents)}
             </span>
           )}
         </p>
       ) : (
-        <p className="mb-3 text-xs text-cinza-2">
-          {PAYMENT_METHOD_LABELS[pedido.paymentMethod as PaymentMethod] ?? pedido.paymentMethod}
-        </p>
+        <p className="mb-3 text-xs text-cinza-2">{rotuloDoPagamento(pedido.paymentMethod)}</p>
       )}
 
       <div className="flex gap-2">
@@ -264,6 +338,7 @@ function Historico({ pedidos }: { pedidos: OrderRow[] }) {
           <tr className="border-b border-borda text-left text-xs text-cinza-2 uppercase">
             <th className="pb-2 font-semibold">Nº</th>
             <th className="pb-2 font-semibold">Cliente</th>
+            <th className="pb-2 font-semibold">Pagamento</th>
             <th className="pb-2 font-semibold">Status</th>
             <th className="pb-2 text-right font-semibold">Total</th>
           </tr>
@@ -271,8 +346,31 @@ function Historico({ pedidos }: { pedidos: OrderRow[] }) {
         <tbody>
           {pedidos.slice(0, 15).map((pedido) => (
             <tr key={pedido.id} className="border-b border-borda/50">
-              <td className="py-2 font-bold text-amarelo">{pedido.number}</td>
-              <td className="py-2 text-cinza">{pedido.customer.name ?? '—'}</td>
+              <td className="py-2">
+                <DadosDoCliente pedido={pedido}>
+                  <span className="font-bold text-amarelo">{pedido.number}</span>
+                </DadosDoCliente>
+              </td>
+              <td className="py-2">
+                <DadosDoCliente pedido={pedido}>
+                  <span className="text-cinza">{pedido.customer.name ?? 'Sem nome'}</span>
+                </DadosDoCliente>
+              </td>
+              <td className="py-2 text-xs whitespace-nowrap">
+                {ehPagamentoNaEntrega(pedido.paymentMethod) ? (
+                  /* Mesma linguagem visual do cartao da cozinha: no
+                     historico o que se procura e justamente conferir se um
+                     pedido era para cobrar na entrega. */
+                  <span className="font-semibold text-amarelo">
+                    <span aria-hidden>
+                      {pedido.paymentMethod === 'CASH_ON_DELIVERY' ? '💵 ' : '🏧 '}
+                    </span>
+                    {rotuloDoPagamento(pedido.paymentMethod)}
+                  </span>
+                ) : (
+                  <span className="text-cinza-2">{rotuloDoPagamento(pedido.paymentMethod)}</span>
+                )}
+              </td>
               <td className="py-2">
                 <span
                   className={cx(

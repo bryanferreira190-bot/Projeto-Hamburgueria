@@ -126,10 +126,20 @@ export interface OrderRow {
   paymentMethod: string;
   /** So preenchido quando o pagamento e em dinheiro na entrega. */
   changeForCents: number | null;
+  /**
+   * Endereco completo — a API ja mandava tudo isto; so nao estava
+   * declarado aqui. A ficha do cliente (ver DadosDoCliente) precisa do
+   * complemento e da referencia para quem entrega achar a casa.
+   */
   address: {
+    zipCode: string | null;
     street: string | null;
     number: string | null;
+    complement: string | null;
     district: string | null;
+    city: string | null;
+    state: string | null;
+    reference: string | null;
   } | null;
   notes: string | null;
 }

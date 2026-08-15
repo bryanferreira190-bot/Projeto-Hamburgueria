@@ -5,6 +5,39 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-15 — Aviso sonoro sintetizado, não o arquivo do iPhone
+
+O painel toca um aviso quando entra pedido em "Aguardando pagamento" ou
+"Novos". O pedido era "o som padrão de notificação do iPhone" — e o som
+é **sintetizado com a Web Audio API** (`lib/som.ts`), não é o arquivo da
+Apple.
+
+**Por quê.** O "Tri-tone" é da Apple; embutir o arquivo no repositório
+seria redistribuir áudio proprietário. O que está lá é um trio de notas
+de sino com a mesma ideia — curto, agudo, reconhecível na cozinha
+barulhenta. De quebra evita um binário no repo e uma requisição a mais.
+**Se alguém for "melhorar" isso trocando por um .mp3 do toque original,
+o problema volta.**
+
+**Destravar o áudio.** Navegador só libera som depois de interação com a
+página, e o aviso toca sozinho (o pedido chega pelo refetch de 15s, sem
+ninguém clicar). Por isso o `AudioContext` é destravado no primeiro
+clique em qualquer lugar do painel, e também no botão 🔔 — que ao ligar
+já toca o aviso, servindo de teste de volume.
+
+**Não avisar de novo o que já era conhecido.** O gatilho compara
+**ids**, não quantidade: a fila também encolhe (pedido avança, pedido é
+cancelado), então contar erraria nos dois sentidos. E a memória não é
+atualizada enquanto a lista não representa a fila real — durante o
+carregamento inicial (senão todo pedido já existente contaria como
+recém-chegado) e com busca ativa (senão limpar a busca faria os pedidos
+filtrados "chegarem de novo").
+
+**Ficha do cliente por portal.** O popover de dados do cliente
+(`DadosDoCliente`) é renderizado com `createPortal` e posição fixa, e não
+posicionado de forma absoluta dentro do card: a tabela do histórico vive
+num `overflow-x-auto`, que recortaria a ficha.
+
 ## 2026-08-15 — Cancelar pedido pago não estornava na Mercado Pago
 
 **Sintoma.** Cancelei o pedido A003 (pago no cartão, R$ 45,00) pelo
