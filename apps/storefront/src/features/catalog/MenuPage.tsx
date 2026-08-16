@@ -77,7 +77,7 @@ export function MenuPage() {
         </p>
       </section>
 
-      <div className="sticky top-[68px] z-30 -mx-5 mb-6 bg-preto/92 px-5 py-3 backdrop-blur-xl">
+      <div className="sticky top-[68px] z-30 -mx-5 mb-6 bg-transparent px-5 py-3 backdrop-blur-xl">
         <input
           type="search"
           value={search}
