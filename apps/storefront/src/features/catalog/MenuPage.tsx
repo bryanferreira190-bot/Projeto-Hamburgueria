@@ -1,13 +1,51 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { api, type Product } from '../../lib/api';
 import { resolveImageUrl } from '../../lib/imageUrl';
 import { Button, EmptyState, Spinner } from '../../components/ui';
 import { cx } from '../../lib/cx';
 import { ProdutoModal } from './ProdutoModal';
 
+/** Mesmo valor do top-[68px] da faixa de categorias, logo abaixo. */
+const TOPO_FIXO_PX = 68;
+
 export function MenuPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  /**
+   * A faixa de categorias so ganha fundo preto DEPOIS de "grudar" no topo
+   * ao rolar — antes disso, no fluxo normal da pagina, fica so com uma
+   * linha sutil. position:sticky nao expoe esse estado sozinho (nao existe
+   * um jeito de CSS puro, com suporte amplo, de perguntar "estou grudado
+   * agora?"), entao a deteccao e feita observando uma sentinela invisivel
+   * logo ACIMA da faixa: quando ela sai da tela por cima, a faixa esta
+   * presa; quando volta a aparecer, a faixa esta no fluxo normal de novo.
+   *
+   * Ref por CALLBACK, e nao useRef + useEffect(, []): a pagina volta
+   * "Carregando o cardapio" (return antecipado, mais abaixo) enquanto a
+   * consulta nao chega — a sentinela literalmente nao existe no DOM na
+   * primeira renderizacao. Um useEffect com deps [] roda uma unica vez,
+   * bem nesse momento em que a ref ainda e null, e nunca mais roda de
+   * novo quando a sentinela finalmente aparece. A ref-callback nao tem
+   * esse problema: ela e chamada de novo sempre que o proprio elemento
+   * monta, nao importa em qual renderizacao isso acontece.
+   */
+  const [grudada, setGrudada] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const sentinelaRef = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    if (!node) return;
+
+    observerRef.current = new IntersectionObserver(
+      ([entrada]) => entrada && setGrudada(!entrada.isIntersecting),
+      /* +1px de margem: sem isso, o gatilho e a troca visual acontecem
+         exatamente no mesmo instante em que o navegador decide grudar a
+         faixa, e a ordem entre os dois fica imprevisivel (pisca). */
+      { rootMargin: `-${TOPO_FIXO_PX + 1}px 0px 0px 0px`, threshold: 0 },
+    );
+    observerRef.current.observe(node);
+  }, []);
 
   const {
     data: categories,
@@ -61,6 +99,10 @@ export function MenuPage() {
         </section>
       </div>
 
+      {/* Alvo do IntersectionObserver acima — 1px sem altura visual,
+          só para saber quando a faixa logo abaixo grudou no topo. */}
+      <div ref={sentinelaRef} aria-hidden className="h-px" />
+
       {/*
         Sem max-w-6xl de proposito, e fora do container acima: e assim que
         este bloco cobre a largura inteira da tela em vez de parar na
@@ -72,10 +114,16 @@ export function MenuPage() {
         faixa sai da tela). Ficar fora do container e o jeito que funciona
         sempre, sticky ou nao.
 
-        Fundo solido, sem blur: nao ha transparencia por cima do preto
-        opaco para borrar.
+        Fundo preto so quando "grudada" (ver useEffect acima) — no fluxo
+        normal fica so a linha sutil, sem fundo nenhum. Sem blur: nao ha
+        transparencia por cima do preto opaco para borrar.
       */}
-      <div className="sticky top-[68px] z-30 mb-10 w-full bg-preto py-3">
+      <div
+        className={cx(
+          'sticky top-[68px] z-30 mb-10 w-full py-3 transition-colors duration-300',
+          grudada ? 'bg-preto' : 'border-y border-white/8 bg-transparent',
+        )}
+      >
         <div className="mx-auto max-w-6xl px-5">
           <div className="sem-scrollbar flex gap-2 overflow-x-auto pb-1">
             <CategoryTab
