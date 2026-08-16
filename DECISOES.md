@@ -5,6 +5,106 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-16 — Auditoria geral: concorrência, CSV do dashboard, limpeza
+
+Auditoria completa do projeto (backend, frontend, banco, deploy,
+dependências). Resumo do que foi corrigido — detalhe de cada item nos
+commits do dia.
+
+**Condição de corrida em `updateStatus()` — a correção mais importante.**
+`OrdersService.updateStatus()` lia o status do pedido, validava a
+transição, e só DEPOIS escrevia — sem lock nem comparação atômica entre
+a leitura e a escrita. Duas requisições concorrentes no mesmo pedido
+(duplo clique em "cancelar", ou o webhook do Mercado Pago e um admin
+agindo ao mesmo tempo) passavam as duas pela validação antes de
+qualquer uma escrever, e as duas aplicavam a transição: duas linhas em
+`OrderStatusHistory`, `coupon.usageCount` decrementado duas vezes, e
+`refundIfPaid` podendo disparar **estorno duplicado de verdade na
+Mercado Pago** (as duas leituras viam o pagamento ainda como `PAID`
+antes de qualquer uma marcar `REFUNDED`).
+
+Corrigido com **compare-and-swap**: `tx.order.update({ where: { id } })`
+virou `tx.order.updateMany({ where: { id, status: statusLido } })`, e o
+`count` do resultado diz se a escrita realmente aconteceu. `count === 0`
+= alguém mexeu no pedido entre a leitura e a escrita — lança
+`ConflictException` em vez de aplicar a mudança por cima. Mesma correção
+em `PaymentsService.avancarPedidoConformePagamento` (o caminho do
+webhook), que é um caminho de escrita **totalmente separado** de
+`updateStatus()` e por isso tinha o mesmo bug de forma independente —
+um não sabe da existência do outro. Testes em
+`orders.service.test.ts`/`payments.service.test.ts` cobrem os dois.
+
+**Colisão na criação do pedido.** `nextOrderNumber()` conta pedidos do
+dia e monta o número sem lock (`count()` depois `create()`, sem nada
+entre os dois). Dois pedidos DIFERENTES (não só duplo clique do mesmo
+cliente) podiam calcular o mesmo número em horário de pico e colidir na
+constraint `@@unique([storeId, orderDate, number])` — quem perdesse a
+corrida recebia um "erro inesperado" (500) genérico mesmo com dados
+válidos. Mesmo risco para colisão de `idempotencyKey` (duplo
+clique/retry de rede chegando quase junto). Corrigido com
+`criarPedidoComRetentativa()`: tenta a transação, e se cair num P2002
+(unique constraint), decide o que fazer conforme QUAL constraint foi
+violada — colisão de `idempotencyKey` devolve o pedido que a outra
+requisição concorrente já criou; colisão de número tenta a transação de
+novo (até 3x), porque na próxima volta o `count()` já enxerga o pedido
+que acabou de ser gravado. Usado tanto no checkout público quanto no
+pedido de balcão — as duas passam pelo mesmo `nextOrderNumber()`.
+
+**Export de CSV do dashboard estava quebrado.** `<a href={url}
+download>` nunca poderia funcionar: o token de acesso do admin vive só
+em memória (de propósito, por segurança), e uma navegação de link
+simples não tem como anexar o header `Authorization`. Todo clique em
+"⬇ CSV" resultava em 401 silencioso. Trocado por um fetch autenticado
+(reaproveitando a mesma renovação de sessão no 401 que o resto do
+painel já usa) que baixa o CSV como Blob e dispara "Salvar como" via
+link temporário — nunca aponta pra URL da API diretamente.
+
+**Sourcemaps de produção estavam publicamente expostos.** Confirmado
+com `curl` antes de mexer: `painel.impactdev.site/assets/*.js.map` e
+`loja.impactdev.site/assets/*.js.map` respondiam 200, expondo
+código-fonte legível (comentários, nomes de função, lógica de negócio)
+a qualquer um. Não há nenhum serviço (Sentry ou equivalente) consumindo
+esses mapas hoje — `sourcemap: false` nos dois `vite.config.ts`.
+
+**Busca de pedidos sem debounce.** Cada tecla digitada em "Buscar
+pedido" no painel virava uma chamada HTTP nova (a `queryKey` mudava a
+cada letra). Adicionado debounce de 300ms — o campo continua respondendo
+instantaneamente (estado separado do que dispara a busca).
+
+**Dependências removidas** (zero uso confirmado por grep, depois
+validado com build+test+typecheck): `@nestjs/config` e `@nestjs/terminus`
+na API (health check é feito à mão, nunca usou o Terminus);
+`react-hook-form`, `@hookform/resolvers` e `zod` direto no storefront
+(o checkout usa `useState` puro; `zod` já vem transitivamente via
+`@adventure/shared`). `REDIS_URL` também saiu do schema de ambiente —
+nunca foi lido em lugar nenhum do código nem documentado no
+`.env.production.example` (diferente de `WHATSAPP_PHONE_NUMBER`, que
+ficou: está documentado como próxima fase).
+
+**O que foi encontrado mas NÃO foi mexido, de propósito:**
+- `products-admin.service.ts` (`update`/`replaceImage`/`removeImage`)
+  não isola por `storeId`, embora o schema seja multi-loja. Inofensivo
+  hoje (uma loja só no banco inteiro) — vira falha de IDOR no dia que
+  existir uma segunda loja. Corrigir agora seria proteger contra uma
+  ameaça que não existe ainda.
+- Enumeração de conta admin via mensagem de bloqueio (403 específico
+  "conta bloqueada" vs 401 genérico "e-mail ou senha incorretos") — a
+  troca certa reduziria a segurança percebida (o admin de verdade
+  perderia a mensagem útil "tente de novo em X min") por um ganho de
+  segurança pequeno, já bem mitigado pelo rate limit + bloqueio de
+  conta existentes.
+- `PaymentWebhookEvent`, `DailySalesRollup`, `ProductSalesRollup`
+  (tabelas do schema nunca escritas nem lidas) e `AdminRole.DELIVERY`
+  (nenhuma rota aceita esse papel) — desenhadas para uma fase futura,
+  nunca conectadas. Completar isso é funcionalidade nova, não correção
+  de bug; o dashboard já agrega direto no banco via SQL (`aggregate`/
+  `groupBy`/`$queryRaw`), então a ausência do rollup não é um problema
+  de performance hoje.
+- `CryptoService.safeEqual()` e `salesReportSchema`/`SalesReportInput`
+  (código morto, zero uso fora de teste) ficaram — são pequenos,
+  inofensivos, e `safeEqual` é infraestrutura de segurança
+  (comparação em tempo constante) genuinamente útil de manter à mão.
+
 ## 2026-08-15 — Pedido de balcão: cliente opcional e fluxo próprio
 
 A cozinha ganhou a aba **Balcão** para lançar a venda feita

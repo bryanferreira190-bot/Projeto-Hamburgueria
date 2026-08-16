@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Link, Route, Routes } from 'react-router';
+import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Header } from './components/Header';
 import { Button, EmptyState, Spinner } from './components/ui';
 import { CartDrawer } from './features/cart/CartDrawer';
@@ -36,35 +37,7 @@ export function App() {
           <Header />
 
           <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<MenuPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/pedido" element={<TrackPage />} />
-              <Route path="/pedido/:number" element={<TrackPage />} />
-              <Route path="/privacidade" element={<PrivacidadePage />} />
-              <Route
-                path="/admin"
-                element={
-                  <Suspense fallback={<Spinner label="Carregando" />}>
-                    <AdminPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="*"
-                element={
-                  <EmptyState
-                    icon="🍔"
-                    title="Página não encontrada"
-                    action={
-                      <Link to="/">
-                        <Button variant="contorno">Ir para o cardápio</Button>
-                      </Link>
-                    }
-                  />
-                }
-              />
-            </Routes>
+            <RotasComRecuperacao />
           </main>
 
           <Footer />
@@ -73,6 +46,51 @@ export function App() {
         <CartDrawer />
       </BrowserRouter>
     </QueryClientProvider>
+  );
+}
+
+/**
+ * `key={pathname}` remonta o ErrorBoundary a cada troca de rota — sem
+ * isto, uma pagina que quebrasse deixaria o `quebrou` do boundary preso
+ * em `true` para sempre, e ATE as outras paginas (que nunca tiveram
+ * problema nenhum) ficariam mostrando a tela de erro depois de uma unica
+ * pagina ter quebrado uma vez.
+ */
+function RotasComRecuperacao() {
+  const location = useLocation();
+
+  return (
+    <ErrorBoundary key={location.pathname}>
+      <Routes>
+        <Route path="/" element={<MenuPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/pedido" element={<TrackPage />} />
+        <Route path="/pedido/:number" element={<TrackPage />} />
+        <Route path="/privacidade" element={<PrivacidadePage />} />
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<Spinner label="Carregando" />}>
+              <AdminPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <EmptyState
+              icon="🍔"
+              title="Página não encontrada"
+              action={
+                <Link to="/">
+                  <Button variant="contorno">Ir para o cardápio</Button>
+                </Link>
+              }
+            />
+          }
+        />
+      </Routes>
+    </ErrorBoundary>
   );
 }
 

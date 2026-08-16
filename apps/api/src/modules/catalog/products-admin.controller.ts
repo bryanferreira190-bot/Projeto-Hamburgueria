@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UploadedFile,
@@ -62,7 +63,7 @@ export class ProductsAdminController {
 
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateProductSchema)) body: UpdateProductInput,
     @CurrentAdmin('sub') adminId: string,
   ) {
@@ -78,7 +79,7 @@ export class ProductsAdminController {
     }),
   )
   uploadImage(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: ArquivoEnviado | undefined,
     @CurrentAdmin('sub') adminId: string,
   ) {
@@ -87,7 +88,7 @@ export class ProductsAdminController {
   }
 
   @Delete(':id/image')
-  removeImage(@Param('id') id: string, @CurrentAdmin('sub') adminId: string) {
+  removeImage(@Param('id', ParseUUIDPipe) id: string, @CurrentAdmin('sub') adminId: string) {
     return this.products.removeImage(id, adminId);
   }
 }

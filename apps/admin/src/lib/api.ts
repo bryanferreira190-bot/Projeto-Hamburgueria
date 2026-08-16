@@ -79,6 +79,35 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
   return data as T;
 }
 
+/**
+ * Como request(), mas para respostas que nao sao JSON — aqui, o CSV do
+ * export. Mesma renovacao transparente de sessao no 401.
+ *
+ * Existe porque um `<a href={url} download>` apontando direto pra API
+ * NUNCA funcionaria: o token de acesso vive so em memoria (de proposito,
+ * por seguranca — nunca em localStorage), e uma navegacao de link simples
+ * nao tem como anexar o header Authorization. Baixar precisa passar pelo
+ * mesmo fetch autenticado que o resto do painel usa.
+ */
+async function requestBlob(path: string): Promise<Blob> {
+  let response = await raw(path);
+
+  if (response.status === 401) {
+    const renewed = await tryRefresh();
+    if (renewed) {
+      response = await raw(path);
+    } else {
+      useAuth.getState().clear();
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, 'Não foi possível gerar o relatório.');
+  }
+
+  return response.blob();
+}
+
 async function tryRefresh(): Promise<boolean> {
   try {
     const response = await fetch(`${BASE}/auth/admin/refresh`, {
@@ -280,11 +309,24 @@ export const api = {
       body: { status, ...(reason ? { reason } : {}) },
     }),
 
-  exportCsvUrl: (from?: Date, to?: Date) => {
+  /**
+   * Baixa o CSV via fetch autenticado e dispara "Salvar como" atraves de
+   * um link temporario apontando pro Blob ja em memoria — nao pra URL da
+   * API (essa nunca teria como carregar o header Authorization).
+   */
+  exportCsv: async (from?: Date, to?: Date): Promise<void> => {
     const params = new URLSearchParams();
     if (from) params.set('from', from.toISOString());
     if (to) params.set('to', to.toISOString());
-    return `${BASE}/admin/reports/export?${params}`;
+
+    const blob = await requestBlob(`/admin/reports/export?${params}`);
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'vendas.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   },
 };
 

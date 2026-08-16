@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { formatBRL, type KpiComparison } from '@adventure/shared';
-import { api } from '../../lib/api';
+import { ApiError, api } from '../../lib/api';
 import { Button, Card, Spinner } from '../../components/ui';
 import { cx } from '../../lib/cx';
 import {
@@ -20,21 +20,40 @@ const PERIODOS = [
 
 export function DashboardPage() {
   const [dias, setDias] = useState<number>(30);
+  const [exportando, setExportando] = useState(false);
+  const [erroExport, setErroExport] = useState<string | null>(null);
 
   const { from, to } = calcularPeriodo(dias);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard', dias],
     queryFn: () => api.dashboard(from, to),
     refetchInterval: 60_000,
   });
+
+  async function exportarCsv() {
+    setErroExport(null);
+    setExportando(true);
+    try {
+      await api.exportCsv(from, to);
+    } catch (error) {
+      setErroExport(error instanceof ApiError ? error.detail : 'Não foi possível baixar o CSV.');
+    } finally {
+      setExportando(false);
+    }
+  }
 
   if (isLoading) return <Spinner label="Carregando indicadores" />;
 
   if (isError || !data) {
     return (
       <Card>
-        <p className="text-center text-cinza">Não foi possível carregar os indicadores.</p>
+        <p className="mb-3 text-center text-cinza">Não foi possível carregar os indicadores.</p>
+        <div className="flex justify-center">
+          <Button variant="contorno" size="sm" onClick={() => void refetch()}>
+            Tentar de novo
+          </Button>
+        </div>
       </Card>
     );
   }
@@ -64,13 +83,22 @@ export function DashboardPage() {
             ))}
           </div>
 
-          <a href={api.exportCsvUrl(from, to)} download>
-            <Button variant="contorno" size="sm">
-              ⬇ CSV
-            </Button>
-          </a>
+          <Button
+            variant="contorno"
+            size="sm"
+            loading={exportando}
+            onClick={() => void exportarCsv()}
+          >
+            ⬇ CSV
+          </Button>
         </div>
       </header>
+
+      {erroExport && (
+        <p role="alert" className="text-sm text-vermelho-2">
+          {erroExport}
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi titulo="Faturamento" dado={kpis.revenueCents} formatar={formatBRL} destaque />

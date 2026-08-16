@@ -137,6 +137,7 @@ export function EscolherAdicionais({
                       )}
                       <button
                         type="button"
+                        aria-label={`Tirar um ${opcao.name}`}
                         onClick={() => mudar(grupo.id, opcao, -1)}
                         disabled={quantidade === 0}
                         className="size-6 shrink-0 rounded border border-borda text-xs text-cinza disabled:opacity-30"
@@ -146,6 +147,7 @@ export function EscolherAdicionais({
                       <span className="tabular w-4 shrink-0 text-center text-sm">{quantidade}</span>
                       <button
                         type="button"
+                        aria-label={`Adicionar um ${opcao.name}`}
                         onClick={() => mudar(grupo.id, opcao, 1)}
                         disabled={usado >= grupo.maxSelect}
                         className="size-6 shrink-0 rounded border border-borda text-xs text-cinza disabled:opacity-30"

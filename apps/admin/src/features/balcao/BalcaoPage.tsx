@@ -302,13 +302,19 @@ export function BalcaoPage() {
                     </div>
 
                     <div className="mt-1.5 flex items-center gap-2">
-                      <BotaoQuantidade onClick={() => mudarQuantidade(item.chave, -1)}>
+                      <BotaoQuantidade
+                        rotulo={`Tirar um ${item.produto.name}`}
+                        onClick={() => mudarQuantidade(item.chave, -1)}
+                      >
                         −
                       </BotaoQuantidade>
                       <span className="tabular w-6 text-center text-sm font-bold">
                         {item.quantidade}
                       </span>
-                      <BotaoQuantidade onClick={() => mudarQuantidade(item.chave, 1)}>
+                      <BotaoQuantidade
+                        rotulo={`Adicionar um ${item.produto.name}`}
+                        onClick={() => mudarQuantidade(item.chave, 1)}
+                      >
                         +
                       </BotaoQuantidade>
                     </div>
@@ -497,15 +503,18 @@ function Chip({
 }
 
 function BotaoQuantidade({
+  rotulo,
   onClick,
   children,
 }: {
+  rotulo: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
+      aria-label={rotulo}
       onClick={onClick}
       className="size-7 rounded-lg border border-borda text-sm font-bold text-cinza transition-colors hover:border-amarelo hover:text-amarelo"
     >

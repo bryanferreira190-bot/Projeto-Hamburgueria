@@ -47,14 +47,24 @@ function rotuloDoPagamento(metodo: string): string {
 export function OrdersPage() {
   const queryClient = useQueryClient();
   const [busca, setBusca] = useState('');
+  const [buscaDebounced, setBuscaDebounced] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [somAtivo, setSomAtivo] = useState(
     () => localStorage.getItem(CHAVE_DO_SOM) !== 'desligado',
   );
 
+  /* So dispara a busca 300ms depois da ultima tecla — sem isto, cada
+     tecla digitada virava uma chamada HTTP nova (queryKey mudando a
+     cada letra), e digitar "hamburguer" chegava a gerar dez requisicoes
+     pra API na tela que a cozinha deixa aberta o dia inteiro. */
+  useEffect(() => {
+    const temporizador = setTimeout(() => setBuscaDebounced(busca), 300);
+    return () => clearTimeout(temporizador);
+  }, [busca]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', busca],
-    queryFn: () => api.orders({ limit: 100, ...(busca ? { search: busca } : {}) }),
+    queryKey: ['orders', buscaDebounced],
+    queryFn: () => api.orders({ limit: 100, ...(buscaDebounced ? { search: buscaDebounced } : {}) }),
     /* A cozinha precisa ver pedido novo sem apertar F5. */
     refetchInterval: 15_000,
   });

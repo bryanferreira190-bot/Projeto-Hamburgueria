@@ -458,9 +458,19 @@ export class PaymentsService {
       return;
     }
 
-    await this.prisma.$transaction([
-      this.prisma.order.update({
-        where: { id: orderId },
+    /**
+     * COMPARE-AND-SWAP, mesmo motivo do updateStatus() em OrdersService:
+     * este e um caminho de escrita TOTALMENTE SEPARADO daquele (o webhook
+     * cai aqui, nao em OrdersService.updateStatus), entao um admin agindo
+     * na tela ao mesmo tempo que este webhook chega nao tem como saber um
+     * do outro. Sem o WHERE com o status antigo, os dois aplicariam a
+     * transicao por cima um do outro. updateMany com 0 linhas alteradas
+     * avisa que perdeu a corrida — nesse caso nao ha o que fazer, o outro
+     * caminho ja resolveu o pedido.
+     */
+    const alterado = await this.prisma.$transaction(async (tx) => {
+      const resultado = await tx.order.updateMany({
+        where: { id: orderId, status: order.status },
         data: {
           status: proximo,
           ...(proximo === OrderStatus.CONFIRMED ? { confirmedAt: new Date() } : {}),
@@ -468,8 +478,11 @@ export class PaymentsService {
             ? { canceledAt: new Date(), cancelReason: 'Pagamento nao aprovado' }
             : {}),
         },
-      }),
-      this.prisma.orderStatusHistory.create({
+      });
+
+      if (resultado.count === 0) return false;
+
+      await tx.orderStatusHistory.create({
         data: {
           orderId,
           fromStatus: order.status,
@@ -479,9 +492,13 @@ export class PaymentsService {
               ? 'Pagamento aprovado via Mercado Pago'
               : 'Pagamento recusado ou cancelado via Mercado Pago',
         },
-      }),
-    ]);
+      });
 
-    this.logger.log(`Pedido ${order.number}: ${order.status} -> ${proximo} (webhook Mercado Pago)`);
+      return true;
+    });
+
+    if (alterado) {
+      this.logger.log(`Pedido ${order.number}: ${order.status} -> ${proximo} (webhook Mercado Pago)`);
+    }
   }
 }

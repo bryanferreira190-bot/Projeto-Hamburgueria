@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router';
 import { hasRoleLevel, AdminRole } from '@adventure/shared';
 import { Button, Spinner } from './components/ui';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { cx } from './lib/cx';
 import { LoginPage } from './features/auth/LoginPage';
 import { BalcaoPage } from './features/balcao/BalcaoPage';
@@ -68,6 +69,7 @@ function Portao() {
 
 function Layout() {
   const { admin, clear } = useAuth();
+  const location = useLocation();
 
   /* A cozinha nao precisa ver faturamento — o menu esconde o que o papel
      nao acessa, e a API recusa de qualquer forma. */
@@ -118,23 +120,28 @@ function Layout() {
       </header>
 
       <main className="mx-auto max-w-7xl px-5 py-6">
-        <Routes>
-          <Route path="/pedidos" element={<OrdersPage />} />
-          <Route path="/balcao" element={<BalcaoPage />} />
-          <Route
-            path="/dashboard"
-            element={
-              podeVerRelatorios ? (
-                <Suspense fallback={<Spinner label="Carregando gráficos" />}>
-                  <DashboardPage />
-                </Suspense>
-              ) : (
-                <Navigate to="/pedidos" replace />
-              )
-            }
-          />
-          <Route path="*" element={<Navigate to="/pedidos" replace />} />
-        </Routes>
+        {/* key={pathname} remonta o boundary a cada troca de aba — sem
+            isto, uma aba que quebrasse deixaria as OUTRAS abas (que nunca
+            tiveram problema) presas na mesma tela de erro depois disso. */}
+        <ErrorBoundary key={location.pathname}>
+          <Routes>
+            <Route path="/pedidos" element={<OrdersPage />} />
+            <Route path="/balcao" element={<BalcaoPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                podeVerRelatorios ? (
+                  <Suspense fallback={<Spinner label="Carregando gráficos" />}>
+                    <DashboardPage />
+                  </Suspense>
+                ) : (
+                  <Navigate to="/pedidos" replace />
+                )
+              }
+            />
+            <Route path="*" element={<Navigate to="/pedidos" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
 
       <footer className="mx-auto max-w-7xl px-5 pb-6 text-center text-xs text-cinza-2/70">

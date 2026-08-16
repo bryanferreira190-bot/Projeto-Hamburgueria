@@ -19,7 +19,7 @@ import {
   type CreateOrderInput,
   type ListOrdersFilter,
 } from '@adventure/shared';
-import type { Prisma } from '@prisma/client';
+import { Prisma, type Order } from '@prisma/client';
 import { hojeNoFusoDaLoja } from '../../common/timezone';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { DeliveryService } from '../delivery/delivery.service';
@@ -83,7 +83,7 @@ export class OrdersService {
 
     const deliveryFeeCents = quote?.feeCents ?? 0;
 
-    const order = await this.prisma.$transaction(async (tx) => {
+    const order = await this.criarPedidoComRetentativa(store, idempotencyKey, async (tx) => {
       const priced = await this.pricing.price(tx, {
         storeId: store.id,
         items: input.items,
@@ -288,7 +288,7 @@ export class OrdersService {
     const store = await this.prisma.store.findFirst();
     if (!store) throw new NotFoundException('Loja nao configurada');
 
-    const order = await this.prisma.$transaction(async (tx) => {
+    const order = await this.criarPedidoComRetentativa(store, undefined, async (tx) => {
       /* Mesmo servico de preco do site: o balcao manda o QUE foi pedido,
          nunca quanto custa. Preco vem sempre do banco. */
       const priced = await this.pricing.price(tx, {
@@ -529,8 +529,21 @@ export class OrdersService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
+      /**
+       * COMPARE-AND-SWAP: so escreve se o status ainda for o mesmo que foi
+       * lido no findUnique acima. Sem isso, duas requisicoes concorrentes
+       * (duplo clique em "cancelar", ou o webhook do Mercado Pago e um
+       * admin agindo ao mesmo tempo no mesmo pedido) passariam as duas pela
+       * validacao de transicao antes de qualquer uma escrever — e as duas
+       * aplicariam a mudanca: duas linhas em OrderStatusHistory, cupom
+       * decrementado duas vezes, e ate estorno duplicado na Mercado Pago
+       * (refundIfPaid, logo abaixo, olha o Payment ainda como PAID nos dois
+       * casos). updateMany com o status antigo no WHERE faz a segunda
+       * tentativa encontrar zero linhas — momento em que ela descobre que
+       * perdeu a corrida, em vez de aplicar a mudanca por cima.
+       */
+      const alterado = await tx.order.updateMany({
+        where: { id: orderId, status: order.status },
         data: {
           status: nextStatus,
           ...(nextStatus === OrderStatus.CONFIRMED ? { confirmedAt: new Date() } : {}),
@@ -541,6 +554,12 @@ export class OrdersService {
             : {}),
         },
       });
+
+      if (alterado.count === 0) {
+        throw new ConflictException(
+          'Este pedido acabou de ser atualizado por outra acao. Recarregue e tente de novo.',
+        );
+      }
 
       await tx.orderStatusHistory.create({
         data: {
@@ -631,6 +650,78 @@ export class OrdersService {
 
     const letter = String.fromCharCode(65 + (Math.floor(contagemDeHoje / 999) % 26));
     return `${letter}${String((contagemDeHoje % 999) + 1).padStart(3, '0')}`;
+  }
+
+  /**
+   * Roda a transacao de criacao do pedido, tentando de novo em caso de
+   * colisao de unicidade (P2002) -- pode acontecer em dois cenarios raros
+   * mas reais, que so aparecem quando ja existe mais de uma requisicao
+   * disputando a mesma chave ao mesmo tempo:
+   *
+   *  - duas requisicoes com a MESMA idempotencyKey quase juntas (duplo
+   *    clique, retry de rede do proprio navegador) — a segunda encontra a
+   *    constraint (storeId, idempotencyKey) ja ocupada pela primeira, que
+   *    commitou um instante antes;
+   *  - dois pedidos DIFERENTES calculando o mesmo numero do dia ao mesmo
+   *    tempo — nextOrderNumber() conta e monta sem lock (ver comentario
+   *    la), entao duas transacoes concorrentes podem calcular "A012" cada
+   *    uma, e so uma consegue gravar.
+   *
+   * Sem isto, a segunda tentativa simplesmente falhava com "erro
+   * inesperado" (500) para quem estava pedindo, mesmo com dados
+   * perfeitamente validos — em horario de pico, isso pode acontecer de
+   * verdade entre dois clientes diferentes, nao so em duplo clique do
+   * mesmo cliente.
+   */
+  private async criarPedidoComRetentativa(
+    store: { id: string },
+    idempotencyKey: string | undefined,
+    transacao: (tx: Prisma.TransactionClient) => Promise<Order>,
+  ): Promise<Order> {
+    const TENTATIVAS = 3;
+
+    for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+      try {
+        return await this.prisma.$transaction(transacao);
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+          throw error;
+        }
+
+        /* Colisao na propria idempotencyKey: a OUTRA requisicao concorrente
+           ja criou o pedido — devolve ele, em vez de tentar de novo (tentar
+           de novo so geraria a mesma colisao para sempre). */
+        const alvo = error.meta?.target;
+        const colidiuNaIdempotencia =
+          idempotencyKey &&
+          Array.isArray(alvo) &&
+          alvo.some((coluna) => String(coluna).includes('idempotencyKey'));
+
+        if (colidiuNaIdempotencia) {
+          const existente = await this.prisma.order.findFirst({
+            where: { storeId: store.id, idempotencyKey },
+          });
+          if (existente) {
+            this.logger.log(
+              `Pedido ${existente.number} devolvido por idempotencia (colisao concorrente)`,
+            );
+            return existente;
+          }
+        }
+
+        /* Colisao no numero do dia: outra transacao pegou o mesmo numero
+           entre o count() e o create(). Tenta de novo do zero — na proxima
+           volta o count() ja ve o pedido que acabou de ser gravado. */
+        if (tentativa === TENTATIVAS) throw error;
+        this.logger.warn(
+          `Colisao ao criar pedido (tentativa ${tentativa}/${TENTATIVAS}), tentando de novo`,
+        );
+      }
+    }
+
+    /* Inalcancavel (o loop sempre retorna ou lanca), mas o TypeScript
+       exige um caminho de retorno explicito. */
+    throw new Error('Falha ao criar pedido apos varias tentativas');
   }
 }
 

@@ -15,7 +15,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3333),
 
   DATABASE_URL: z.string().url('DATABASE_URL deve ser uma URL de conexao valida'),
-  REDIS_URL: z.string().url().optional().or(z.literal('')),
 
   /**
    * Endereco publico da API (ex.: https://api.impactdev.site).

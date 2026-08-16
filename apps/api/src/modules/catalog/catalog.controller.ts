@@ -1,4 +1,12 @@
-import { Controller, Get, Header, NotFoundException, Param, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Header,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../auth/decorators';
 import { CatalogService, type CategoryDto, type ProductDto } from './catalog.service';
@@ -38,7 +46,10 @@ export class CatalogController {
    */
   @Get('products/:id/image')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
-  async getProductImage(@Param('id') id: string, @Res() response: Response): Promise<void> {
+  async getProductImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() response: Response,
+  ): Promise<void> {
     const image = await this.images.load(id);
 
     if (!image) throw new NotFoundException('Este produto ainda nao tem foto.');
