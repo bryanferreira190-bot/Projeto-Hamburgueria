@@ -20,7 +20,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- O "?v=" existe so para quebrar cache de navegador/celular quando
+       este arquivo muda -- sem isso, quem visitou o site antes de um
+       ajuste pode continuar vendo a versao antiga por ate 4h (o
+       Cache-Control do Cloudflare Pages), as vezes mais em Safari mobile.
+       AO EDITAR style.css OU main.js, AUMENTE ESTE NUMERO (aqui e no
+       <script> no fim do body). -->
+  <link rel="stylesheet" href="assets/css/style.css?v=2">
 </head>
 <body>
 
@@ -580,6 +586,6 @@
   <span class="fab__txt">Peça Online</span>
 </a>
 
-<script src="assets/js/main.js"></script>
+<script src="assets/js/main.js?v=2"></script>
 </body>
 </html>
