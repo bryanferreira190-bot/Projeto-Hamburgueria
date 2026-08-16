@@ -8,7 +8,6 @@ import { ProdutoModal } from './ProdutoModal';
 
 export function MenuPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
 
   const {
     data: categories,
@@ -24,27 +23,10 @@ export function MenuPage() {
   const visible = useMemo(() => {
     if (!categories) return [];
 
-    const term = search.trim().toLowerCase();
-
-    /* Busca ignora a categoria selecionada: quem digita quer achar o item
-       em qualquer lugar do cardapio. */
-    if (term) {
-      return categories
-        .map((category) => ({
-          ...category,
-          products: category.products.filter(
-            (product) =>
-              product.name.toLowerCase().includes(term) ||
-              product.description?.toLowerCase().includes(term),
-          ),
-        }))
-        .filter((category) => category.products.length > 0);
-    }
-
     return activeCategory
       ? categories.filter((category) => category.slug === activeCategory)
       : categories;
-  }, [categories, activeCategory, search]);
+  }, [categories, activeCategory]);
 
   if (isLoading) return <Spinner label="Carregando o cardápio" />;
 
@@ -64,29 +46,37 @@ export function MenuPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-5 pb-24">
-      <section className="py-8 text-center sm:py-12">
-        <span className="mb-4 inline-block rounded-full border border-amarelo/35 bg-amarelo/8 px-4 py-1.5 text-[0.72rem] font-extrabold tracking-[0.2em] text-amarelo uppercase">
-          Peça Online
-        </span>
-        <h1 className="titulo-display text-4xl sm:text-5xl">
-          MONTE SEU <span className="text-amarelo">PEDIDO</span>
-        </h1>
-        <p className="mx-auto mt-3 max-w-lg text-cinza">
-          Escolha seus itens, informe o endereço e pronto. Sai da chapa direto para você.
-        </p>
-      </section>
+    <>
+      <div className="mx-auto max-w-6xl px-5">
+        <section className="py-8 text-center sm:py-12">
+          <span className="mb-4 inline-block rounded-full border border-amarelo/35 bg-amarelo/8 px-4 py-1.5 text-[0.72rem] font-extrabold tracking-[0.2em] text-amarelo uppercase">
+            Peça Online
+          </span>
+          <h1 className="titulo-display text-4xl sm:text-5xl">
+            MONTE SEU <span className="text-amarelo">PEDIDO</span>
+          </h1>
+          <p className="mx-auto mt-3 max-w-lg text-cinza">
+            Escolha seus itens, informe o endereço e pronto. Sai da chapa direto para você.
+          </p>
+        </section>
+      </div>
 
-      <div className="sticky top-[68px] z-30 -mx-5 mb-6 bg-transparent px-5 py-3 backdrop-blur-xl">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar no cardápio…"
-          className="mb-3 w-full rounded-full border border-borda bg-preto-3 px-5 py-3 text-white placeholder:text-cinza-2 focus:border-amarelo focus:outline-none"
-        />
+      {/*
+        Sem max-w-6xl de proposito, e fora do container acima: e assim que
+        este bloco cobre a largura inteira da tela em vez de parar na
+        largura do conteudo — <main>, o pai dele, nao tem nenhum limite de
+        largura (ver App.tsx). Um "furo" via left/translate funcionaria
+        para position:relative, mas NAO para position:sticky (nesse modo,
+        left/right sao deslocamento a partir da posicao normal, nao
+        porcentagem do container — o calculo simplesmente da errado e a
+        faixa sai da tela). Ficar fora do container e o jeito que funciona
+        sempre, sticky ou nao.
 
-        {!search && (
+        Fundo solido, sem blur: nao ha transparencia por cima do preto
+        opaco para borrar.
+      */}
+      <div className="sticky top-[68px] z-30 mb-10 w-full bg-preto py-3">
+        <div className="mx-auto max-w-6xl px-5">
           <div className="sem-scrollbar flex gap-2 overflow-x-auto pb-1">
             <CategoryTab
               label="Tudo"
@@ -102,38 +92,42 @@ export function MenuPage() {
               />
             ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {visible.length === 0 ? (
-        <EmptyState
-          icon="🔍"
-          title="Nada encontrado"
-          description={`Não achamos nada para "${search}". Tente outro termo.`}
-          action={
-            <Button variant="contorno" onClick={() => setSearch('')}>
-              Limpar busca
-            </Button>
-          }
-        />
-      ) : (
-        visible.map((category) => (
-          <section key={category.id} className="mb-12">
-            <h2 className="titulo-display mb-5 flex items-center gap-3 text-2xl">
-              <span className="text-vermelho">›</span>
-              {category.name}
-              <span className="text-sm font-normal text-cinza-2">({category.products.length})</span>
-            </h2>
+      <div className="mx-auto max-w-6xl px-5 pb-24">
+        {visible.length === 0 ? (
+          <EmptyState
+            icon="🍔"
+            title="Nenhum produto nesta categoria"
+            description="Escolha outra categoria no menu acima."
+            action={
+              <Button variant="contorno" onClick={() => setActiveCategory(null)}>
+                Ver tudo
+              </Button>
+            }
+          />
+        ) : (
+          visible.map((category) => (
+            <section key={category.id} className="mb-12">
+              <h2 className="titulo-display mb-5 flex items-center gap-3 text-2xl">
+                <span className="text-vermelho">›</span>
+                {category.name}
+                <span className="text-sm font-normal text-cinza-2">
+                  ({category.products.length})
+                </span>
+              </h2>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {category.products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </section>
-        ))
-      )}
-    </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {category.products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+      </div>
+    </>
   );
 }
 
