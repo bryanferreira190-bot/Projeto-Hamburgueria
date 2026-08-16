@@ -921,11 +921,23 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
   color:var(--branco); font-weight:800; font-size:.94rem;
   box-shadow:0 14px 34px rgba(224,31,38,.45);
   opacity:0; visibility:hidden; transform:translateY(20px);
-  transition:opacity var(--mid), transform var(--mid), visibility var(--mid), background var(--fast);
+  transition:opacity var(--mid), transform var(--mid), visibility var(--mid), background var(--fast), box-shadow var(--fast);
 }
 .fab.is-visible{ opacity:1; visibility:visible; transform:none; }
 .fab:hover{ background:linear-gradient(135deg, var(--amarelo) 0%, #f2a900 100%); color:var(--preto); }
-.fab__ico{ font-size:1.2rem; }
+.fab__ico{ width:1.2rem; height:1.2rem; font-size:1.2rem; flex-shrink:0; }
+
+/* Verde oficial do WhatsApp, de proposito diferente do gradiente
+   vermelho/amarelo do resto do site — e o que faz reconhecer o botao
+   como "abrir WhatsApp" antes mesmo de ler o texto. */
+.fab--whatsapp{
+  background:linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  box-shadow:0 14px 34px rgba(37,211,102,.45);
+}
+.fab--whatsapp:hover{
+  background:linear-gradient(135deg, #2fe374 0%, #14a189 100%);
+  color:var(--branco);
+}
 
 /* ==========================================================================
    RESPONSIVO
