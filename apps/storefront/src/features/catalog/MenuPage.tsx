@@ -77,13 +77,13 @@ export function MenuPage() {
         </p>
       </section>
 
-      <div className="sticky top-[68px] z-30 -mx-5 mb-10 bg-transparent px-5 py-3 backdrop-blur-xl">
+      <div className="sticky top-[68px] z-30 -mx-5 mb-6 bg-transparent px-5 py-3 backdrop-blur-xl">
         <input
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar no cardápio…"
-          className="mb-3 w-full rounded-full bg-preto-3 px-5 py-3 text-white placeholder:text-cinza-2 outline-none focus:ring-2 focus:ring-amarelo/60"
+          className="mb-3 w-full rounded-full border border-borda bg-preto-3 px-5 py-3 text-white placeholder:text-cinza-2 focus:border-amarelo focus:outline-none"
         />
 
         {!search && (
@@ -151,10 +151,10 @@ function CategoryTab({
       type="button"
       onClick={onClick}
       className={cx(
-        'shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-all',
+        'shrink-0 rounded-full border px-5 py-2 text-sm font-bold transition-all',
         active
-          ? 'bg-amarelo text-preto shadow-[0_4px_16px_rgba(255,194,26,.35)]'
-          : 'bg-preto-3/70 text-cinza hover:bg-preto-3 hover:text-white',
+          ? 'border-amarelo bg-amarelo text-preto'
+          : 'border-borda bg-preto-3 text-cinza hover:border-cinza-2 hover:text-white',
       )}
     >
       {label}
