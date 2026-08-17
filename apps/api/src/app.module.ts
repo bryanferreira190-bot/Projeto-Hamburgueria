@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { IpRealThrottlerGuard } from './common/guards/ip-real-throttler.guard';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ConfigModule } from './config/config.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
@@ -65,7 +66,10 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
      *
      * O AdminAuthGuard fecha TODAS as rotas por padrao. Abrir exige @Public().
      */
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    /* IpRealThrottlerGuard, e nao o ThrottlerGuard padrao: atras do
+       Cloudflare o `req.ip` e a borda deles, nao o cliente. Ver o
+       comentario no proprio guard. */
+    { provide: APP_GUARD, useClass: IpRealThrottlerGuard },
     { provide: APP_GUARD, useClass: AdminAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

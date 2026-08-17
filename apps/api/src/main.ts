@@ -64,9 +64,17 @@ async function bootstrap(): Promise<void> {
     maxAge: 86_400,
   });
 
-  /* Confia no proxy para que o rate limiting enxergue o IP real do cliente,
-     e nao o do load balancer. */
-  app.set('trust proxy', 1);
+  /**
+   * A cadeia real e Cloudflare -> proxy do Railway -> app: DOIS saltos,
+   * nao um. Com `1`, o `req.ip` parava na borda do Cloudflare em vez de
+   * chegar no cliente.
+   *
+   * Isso afeta principalmente o rate limiting — que, por seguranca, nao
+   * depende so disto: o IpRealThrottlerGuard usa o cabecalho
+   * `CF-Connecting-IP`, posto pelo proprio Cloudflare e nao falsificavel
+   * pelo cliente. Ver o comentario la.
+   */
+  app.set('trust proxy', 2);
 
   app.useGlobalFilters(new ProblemDetailsFilter());
 

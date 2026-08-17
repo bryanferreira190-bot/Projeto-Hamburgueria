@@ -5,6 +5,35 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-17 — Rate limiting contava o IP do Cloudflare, não o do cliente
+
+Descoberto ao verificar em produção a correção do throttler (logo
+abaixo): o limite funcionava local, mas **não** em produção. Mesmo teste,
+resultados opostos.
+
+A causa: a cadeia real é **Cloudflare → proxy do Railway → app**, dois
+saltos, e o `trust proxy` estava em `1`. O `req.ip` — que o
+`ThrottlerGuard` usa como chave — parava numa **borda do Cloudflare** em
+vez de chegar no cliente.
+
+Duas consequências, as duas ruins:
+- **o mesmo cliente contava como vários**: o Cloudflare distribui
+  conexões entre bordas, então cada requisição podia cair num contador
+  novo. Medido: 7 chamadas seguidas passavam numa rota de limite 5/min,
+  enquanto as mesmas 7 **na mesma conexão** eram barradas na 6ª — foi
+  esse contraste que denunciou o problema;
+- **clientes diferentes contavam como um só**: quem sai pela mesma borda
+  divide o contador, e um abusador derrubaria terceiros junto.
+
+Corrigido com um `IpRealThrottlerGuard` que usa `CF-Connecting-IP`
+(posto pelo próprio Cloudflare, não falsificável pelo cliente), com
+`req.ip` de fallback para desenvolvimento local. O `trust proxy` também
+passou para `2`, refletindo a topologia real — mas a segurança não
+depende dele: depende do cabeçalho.
+
+Verificado nos dois sentidos antes de subir: IPs diferentes têm
+contadores independentes, e o mesmo IP é barrado na 6ª tentativa.
+
 ## 2026-08-17 — Rate limiting por rota estava INERTE no projeto inteiro
 
 Achado durante a auditoria do módulo de WhatsApp, mas o efeito era
