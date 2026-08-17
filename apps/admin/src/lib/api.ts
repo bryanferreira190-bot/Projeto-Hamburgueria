@@ -1,4 +1,4 @@
-import type { AdminRole, DashboardData } from '@adventure/shared';
+import type { AdminRole, DashboardData, ResumoDeCashback } from '@adventure/shared';
 import { useAuth, type AdminProfile } from './auth';
 
 /**
@@ -299,6 +299,8 @@ export const api = {
   /* O cardapio e publico; a rota aceita a chamada autenticada do painel
      do mesmo jeito, entao nao ha endpoint proprio a manter. */
   menu: () => request<Category[]>('/catalog/menu'),
+
+  cashback: () => request<ResumoDeCashback>('/admin/cashback'),
 
   createManualOrder: (payload: ManualOrderPayload) =>
     request<OrderRow>('/orders/manual', { method: 'POST', body: payload }),

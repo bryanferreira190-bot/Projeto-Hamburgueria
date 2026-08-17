@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ConfigModule } from './config/config.module';
@@ -7,6 +8,7 @@ import { PrismaModule } from './infra/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AdminAuthGuard } from './modules/auth/guards/admin-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { CashbackModule } from './modules/cashback/cashback.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { HealthModule } from './modules/health/health.module';
@@ -32,6 +34,10 @@ import { StoreModule } from './modules/store/store.module';
       { name: 'long', ttl: 60_000, limit: 120 },
     ]),
 
+    /* Tarefas com hora marcada — hoje so o aviso diario de cashback
+       expirando. Ver CashbackExpiryJob. */
+    ScheduleModule.forRoot(),
+
     AuthModule,
     HealthModule,
     StoreModule,
@@ -40,6 +46,7 @@ import { StoreModule } from './modules/store/store.module';
     OrdersModule,
     PaymentsModule,
     ReportsModule,
+    CashbackModule,
   ],
   providers: [
     /**

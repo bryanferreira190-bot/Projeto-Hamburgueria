@@ -70,7 +70,20 @@ const envSchema = z.object({
 
   MERCADOPAGO_ACCESS_TOKEN: z.string().optional().or(z.literal('')),
   MERCADOPAGO_WEBHOOK_SECRET: z.string().optional().or(z.literal('')),
+
+  /**
+   * WhatsApp Cloud API (Meta). Todas opcionais: sem elas o envio fica
+   * DORMENTE — o sistema registra no log o que teria mandado, e o resto
+   * do cashback funciona normalmente. Ver WhatsAppService.
+   */
+  /** Numero comercial mostrado ao cliente (so exibicao). */
   WHATSAPP_PHONE_NUMBER: z.string().optional().or(z.literal('')),
+  /** Token permanente do System User da Meta. E segredo. */
+  WHATSAPP_TOKEN: z.string().optional().or(z.literal('')),
+  /** Id do numero no WhatsApp Business, nao o telefone em si. */
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional().or(z.literal('')),
+  /** Nome do template aprovado que avisa o cashback expirando. */
+  WHATSAPP_TEMPLATE_CASHBACK: z.string().default('cashback_expirando'),
 });
 
 function secretMessage(name: string): string {

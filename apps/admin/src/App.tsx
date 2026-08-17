@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { cx } from './lib/cx';
 import { LoginPage } from './features/auth/LoginPage';
 import { BalcaoPage } from './features/balcao/BalcaoPage';
+import { CashbackPage } from './features/cashback/CashbackPage';
 import { OrdersPage } from './features/orders/OrdersPage';
 import { api } from './lib/api';
 import { useAuth } from './lib/auth';
@@ -104,6 +105,10 @@ function Layout() {
           <nav className="flex gap-1">
             <Aba para="/pedidos">Pedidos</Aba>
             <Aba para="/balcao">Balcão</Aba>
+            {/* Cashback e informacao comercial (quanto a loja "deve" em
+                saldo) e traz telefone de cliente — mesmo criterio do
+                dashboard, so MANAGER para cima. */}
+            {podeVerRelatorios && <Aba para="/cashback">Cashback</Aba>}
             {podeVerRelatorios && <Aba para="/dashboard">Dashboard</Aba>}
           </nav>
 
@@ -127,6 +132,10 @@ function Layout() {
           <Routes>
             <Route path="/pedidos" element={<OrdersPage />} />
             <Route path="/balcao" element={<BalcaoPage />} />
+            <Route
+              path="/cashback"
+              element={podeVerRelatorios ? <CashbackPage /> : <Navigate to="/pedidos" replace />}
+            />
             <Route
               path="/dashboard"
               element={

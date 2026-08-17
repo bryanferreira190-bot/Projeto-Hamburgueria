@@ -8,6 +8,7 @@ import type { OrderPricingService } from './order-pricing.service';
 import type { StoreService } from '../store/store.service';
 import type { DeliveryService } from '../delivery/delivery.service';
 import type { PaymentsService } from '../payments/payments.service';
+import type { CashbackService } from '../cashback/cashback.service';
 
 /**
  * Cobre os dois pontos que a auditoria identificou como reais condicoes de
@@ -127,8 +128,15 @@ function makeService(opts: {
     createCardForOrder: vi.fn(),
   } as unknown as PaymentsService;
 
-  const service = new OrdersService(prisma, pricing, store, delivery, payments);
-  return { service, prisma, tx, payments };
+  const cashback = {
+    saldoDoCliente: vi.fn().mockResolvedValue({ totalCents: 0, proximoVencimento: null }),
+    calcularResgateMaximo: vi.fn().mockReturnValue(0),
+    consumir: vi.fn().mockResolvedValue(0),
+    creditarPorPedido: vi.fn().mockResolvedValue(undefined),
+  } as unknown as CashbackService;
+
+  const service = new OrdersService(prisma, pricing, store, delivery, payments, cashback);
+  return { service, prisma, tx, payments, cashback };
 }
 
 const PEDIDO_BASE: CreateOrderFixture = {

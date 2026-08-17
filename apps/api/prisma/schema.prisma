@@ -96,6 +96,20 @@ model Store {
   baseDeliveryFeeCents Int     @default(0)
   avgPrepMinutes       Int     @default(30)
 
+  // ----- Cashback -----
+  // Ficam no banco, e nao como constante no codigo, porque sao regras
+  // comerciais: mudar o percentual ou a validade nao deveria exigir
+  // deploy. Zerar cashbackPercent desliga o programa inteiro.
+  /// Quanto do valor PAGO EM DINHEIRO volta como cashback. 5 = 5%.
+  cashbackPercent Int @default(5)
+  /// Dias ate o credito expirar. Conta a partir do momento em que o
+  /// pedido e concluido, nao de quando foi feito.
+  cashbackExpiryDays Int @default(20)
+  /// Teto de quanto de UM pedido pode ser pago com cashback. Protege a
+  /// margem: sem isso, um pedido inteiro sairia sem dinheiro novo
+  /// entrando. 100 = sem teto.
+  cashbackMaxRedeemPercent Int @default(50)
+
   // Pausa emergencial: interrompe pedidos mesmo dentro do horario
   isOpenOverride Boolean @default(true)
   acceptsDelivery Boolean @default(true)
@@ -110,9 +124,10 @@ model Store {
   products      Product[]
   optionGroups  OptionGroup[]
   coupons       Coupon[]
-  orders        Order[]
-  admins        AdminUser[]
-  customers     Customer[]
+  orders          Order[]
+  admins          AdminUser[]
+  customers       Customer[]
+  cashbackCredits CashbackCredit[]
 
   @@map("store")
 }
@@ -312,13 +327,73 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  store     Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  addresses CustomerAddress[]
-  orders    Order[]
-  otpCodes  OtpCode[]
+  store            Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  addresses        CustomerAddress[]
+  orders           Order[]
+  otpCodes         OtpCode[]
+  cashbackCredits  CashbackCredit[]
 
   @@unique([storeId, phone])
   @@map("customer")
+}
+
+/**
+ * Um credito de cashback, com validade propria.
+ *
+ * MODELO DE LOTES, e nao um saldo unico no cliente: cada pedido gera um
+ * credito que expira na sua propria data. Um saldo unico (ex.: um campo
+ * `cashbackCents` no Customer) nao teria como saber QUANTO expira amanha
+ * — que e justamente a informacao do aviso no WhatsApp — nem qual parte
+ * do saldo vence primeiro.
+ *
+ * O saldo do cliente e a SOMA de `remainingCents` dos creditos ainda
+ * dentro da validade. Gastar consome os creditos que vencem antes
+ * (FIFO por expiresAt), para o cliente nunca perder valor que daria
+ * para ter usado.
+ */
+model CashbackCredit {
+  id         String @id @default(uuid()) @db.Uuid
+  storeId    String @db.Uuid
+  customerId String @db.Uuid
+
+  /// Quanto este credito valia quando nasceu. Nao muda — serve de
+  /// historico ("ganhou R$ 3,50 no pedido A012").
+  amountCents Int
+  /// Quanto ainda resta. Cai conforme o cliente usa; zero = esgotado.
+  remainingCents Int
+
+  /// Depois deste instante o que sobrou nao vale mais. Toda consulta de
+  /// saldo filtra por isto — e a fonte da verdade da validade.
+  expiresAt DateTime
+
+  /// Pedido que gerou o credito.
+  orderId String @db.Uuid
+
+  /// Carimbado pelo job diario que varre credito vencido. NAO e o que
+  /// decide se o credito vale (isso e o expiresAt): serve para saber
+  /// quanto de fato expirou sem ser usado, e para o job nao reprocessar
+  /// o mesmo credito todo dia.
+  expiredAt DateTime?
+
+  /// Quando o aviso de "expira amanha" foi enviado. Impede mandar a
+  /// mesma mensagem duas vezes se o job rodar de novo no mesmo dia.
+  expiryWarningSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  /// Um pedido gera no maximo um credito — protege contra creditar duas
+  /// vezes o mesmo pedido se a conclusao for processada em duplicidade.
+  @@unique([orderId])
+  /// Saldo do cliente: filtra por cliente + validade.
+  @@index([customerId, expiresAt])
+  /// Job de expiracao e de aviso: varre por loja + validade.
+  @@index([storeId, expiresAt])
+  @@map("cashback_credit")
 }
 
 model CustomerAddress {
@@ -450,6 +525,11 @@ model Order {
   subtotalCents    Int
   deliveryFeeCents Int @default(0)
   discountCents    Int @default(0)
+  /// Quanto deste pedido foi abatido com cashback do proprio cliente.
+  /// Separado de discountCents (que e cupom) de proposito: sao coisas
+  /// diferentes no fechamento de caixa — cupom e desconto promocional,
+  /// cashback e saldo que o cliente ja tinha conquistado.
+  cashbackUsedCents Int @default(0)
   totalCents       Int
 
   paymentMethod PaymentMethod
@@ -485,9 +565,10 @@ model Order {
   store         Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
   customer      Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
   coupon        Coupon?              @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  items         OrderItem[]
-  statusHistory OrderStatusHistory[]
-  payments      Payment[]
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+  payments        Payment[]
+  cashbackCredit  CashbackCredit?
 
   @@unique([storeId, orderDate, number])
   @@unique([storeId, idempotencyKey])

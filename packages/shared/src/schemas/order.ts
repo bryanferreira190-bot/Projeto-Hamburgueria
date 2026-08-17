@@ -70,6 +70,14 @@ const baseOrderSchema = z.object({
   notes: z.string().trim().max(300).optional(),
   /* Quanto o cliente vai pagar em dinheiro, para o entregador levar troco. */
   changeForCents: centsSchema.optional(),
+  /**
+   * Quanto do proprio saldo de cashback o cliente quer abater.
+   *
+   * E so um PEDIDO: o servidor recalcula o saldo real e o teto da loja
+   * e usa o menor valor. Confiar neste numero deixaria qualquer um
+   * zerar o proprio pedido mandando um valor alto pelo DevTools.
+   */
+  cashbackToUseCents: centsSchema.optional(),
   /* Exigido quando o pagamento e por cartao — ver o refine mais abaixo. */
   card: cardPaymentSchema.optional(),
 });

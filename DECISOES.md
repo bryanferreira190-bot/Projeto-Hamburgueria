@@ -5,6 +5,89 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-17 — Cashback de 5% com validade e aviso no WhatsApp
+
+Programa de fidelidade: 5% do valor pago volta como crédito, válido por
+20 dias, usável no próximo pedido. Aviso automático no WhatsApp um dia
+antes de expirar.
+
+**Modelo de LOTES, não um saldo único no cliente.** Um campo
+`cashbackCents` no `Customer` seria mais simples, mas não teria como
+responder "quanto expira amanhã?" — que é exatamente a informação do
+aviso. Cada pedido concluído vira um `CashbackCredit` com validade
+própria; o saldo é a soma do que ainda vale. Gastar consome primeiro o
+que vence antes (FIFO por `expiresAt`), para o cliente nunca perder
+valor que daria para ter usado.
+
+**Regras comerciais no banco, não no código** (`store.cashbackPercent`,
+`cashbackExpiryDays`, `cashbackMaxRedeemPercent`): mudar o percentual ou
+a validade é decisão de negócio e não deveria exigir deploy. Zerar
+`cashbackPercent` desliga o programa inteiro.
+
+**Credita só quando o pedido é concluído** (`DELIVERED`/`COMPLETED`), e
+não na confirmação. Creditar antes obrigaria a "tirar de volta" no
+cancelamento — e se o cliente já tivesse gasto o saldo, o resultado
+seria saldo negativo, com toda a complicação de cobrar de volta. Decisão
+do dono da loja.
+
+**A base é o valor pago EM DINHEIRO**: subtotal − cupom − cashback
+usado. Duas consequências deliberadas:
+- cashback não gera cashback, senão o saldo se realimentaria sozinho;
+- a taxa de entrega fica de fora — ela vai integral para quem entrega,
+  então devolver 5% dela sairia direto da margem da loja.
+
+**Teto de resgate por pedido** (`cashbackMaxRedeemPercent`, hoje 50%):
+sem ele, um pedido inteiro sairia pago só com saldo acumulado, sem
+dinheiro novo entrando. É configurável justamente porque é uma escolha
+comercial, não técnica.
+
+**O valor de resgate que vem do navegador é só um PEDIDO.** O servidor
+recalcula o saldo real e o teto dentro da transação e usa o menor valor
+— mesma regra que já vale para preço (ver o topo de
+`createOrderSchema`). Confiar no número enviado deixaria qualquer um
+zerar o próprio pedido pelo DevTools.
+
+**`consumir()` roda DENTRO da transação de criação do pedido**: se a
+criação falhar adiante, o saldo debitado volta junto no rollback, em vez
+de sumir sem pedido nenhum para mostrar. E o `updateMany` com o
+`remainingCents` esperado no `WHERE` impede que dois pedidos simultâneos
+do mesmo cliente gastem o mesmo crédito duas vezes (mesmo padrão
+compare-and-swap da auditoria de ontem).
+
+**`createMany` com `skipDuplicates` em vez de `create` em try/catch**
+para creditar: o resultado é o mesmo (a constraint `@@unique([orderId])`
+é quem garante que um pedido nunca gera dois créditos), mas o caminho
+"já existia" não passa por exceção — não suja o log com um erro de
+Prisma que na verdade é o comportamento esperado.
+
+**WhatsApp: Cloud API oficial, e o serviço nasce DORMENTE.** Sem
+`WHATSAPP_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID`, o `WhatsAppService`
+registra no log o que teria enviado e segue — assim todo o resto do
+cashback roda e é testável em produção antes de a conta Meta estar
+pronta, sem nenhum `if` espalhado pelo código de negócio. Mantida a
+decisão original do projeto de não usar Baileys/Venom (violam os termos
+e levam a banimento do número comercial).
+
+**Mensagem iniciada pela loja exige template aprovado pela Meta.** Texto
+livre só é permitido dentro da janela de 24h depois de o cliente mandar
+mensagem — o aviso de expiração não se encaixa nisso. Por isso o serviço
+só envia template, com variáveis posicionais (`{{1}}`, `{{2}}`).
+
+**Aviso um dia antes, às 10h no fuso da loja.** Um dia dá tempo de a
+pessoa fazer o pedido e ainda cria urgência; avisar no próprio dia
+frustra quem só viu à noite. 10h porque a loja abre 18h — cedo para
+planejar o jantar, tarde para não acordar ninguém. O `expiryWarningSentAt`
+impede mandar a mesma mensagem duas vezes se o job rodar de novo no
+mesmo dia (redeploy, execução manual), e só é carimbado **depois** do
+envio confirmado — se a Meta recusar, o cliente continua elegível.
+
+**Rota pública de saldo devolve só valores, nunca nome.** O checkout é
+de convidado (não existe login de cliente), então a consulta é pelo
+telefone. Devolver só números significa que, mesmo que alguém varra
+telefones, não consegue montar uma base de clientes — só descobre saldos
+avulsos. Somado ao throttle apertado e à exigência do telefone completo,
+é o mesmo raciocínio da correção de LGPD do rastreio de pedido.
+
 ## 2026-08-16 — Auditoria geral: concorrência, CSV do dashboard, limpeza
 
 Auditoria completa do projeto (backend, frontend, banco, deploy,

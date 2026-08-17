@@ -22,6 +22,7 @@ import {
 import { Prisma, type Order } from '@prisma/client';
 import { hojeNoFusoDaLoja } from '../../common/timezone';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { CashbackService } from '../cashback/cashback.service';
 import { DeliveryService } from '../delivery/delivery.service';
 import { PaymentsService } from '../payments/payments.service';
 import { StoreService } from '../store/store.service';
@@ -37,6 +38,7 @@ export class OrdersService {
     private readonly store: StoreService,
     private readonly delivery: DeliveryService,
     private readonly payments: PaymentsService,
+    private readonly cashback: CashbackService,
   ) {}
 
   /**
@@ -96,12 +98,9 @@ export class OrdersService {
         throw new BadRequestException(`O pedido minimo e de ${formatBRL(minOrder)}.`);
       }
 
-      /* Troco precisa cobrir o total; caso contrario o entregador fica sem. */
-      if (input.changeForCents !== undefined && input.changeForCents < priced.totalCents) {
-        throw new BadRequestException(
-          `O valor para troco (${formatBRL(input.changeForCents)}) e menor que o total (${formatBRL(priced.totalCents)}).`,
-        );
-      }
+      /* A checagem do troco fica mais abaixo, DEPOIS de calcular o
+         cashback: o valor que o cliente vai pagar de fato e o total
+         menos o saldo abatido. */
 
       const customer = await tx.customer.upsert({
         where: { storeId_phone: { storeId: store.id, phone: input.customer.phone } },
@@ -118,6 +117,46 @@ export class OrdersService {
           lastOrderAt: new Date(),
         },
       });
+
+      /**
+       * CASHBACK: o valor pedido pelo cliente e so um pedido.
+       *
+       * O saldo real e o teto da loja sao recalculados aqui, DENTRO da
+       * transacao — confiar no numero que veio do navegador deixaria
+       * qualquer um zerar o proprio pedido mandando um valor alto pelo
+       * DevTools, exatamente como acontece com preco (ver o comentario
+       * no topo de createOrderSchema).
+       *
+       * `consumir` roda na mesma transacao: se a criacao do pedido
+       * falhar adiante, o saldo debitado volta junto no rollback, em vez
+       * de sumir sem pedido nenhum para mostrar.
+       */
+      let cashbackUsedCents = 0;
+      if (input.cashbackToUseCents && input.cashbackToUseCents > 0) {
+        const saldo = await this.cashback.saldoDoCliente(customer.id);
+        const permitido = this.cashback.calcularResgateMaximo(
+          priced.subtotalCents - priced.discountCents,
+          saldo.totalCents,
+          store.cashbackMaxRedeemPercent,
+        );
+
+        cashbackUsedCents = await this.cashback.consumir(
+          tx,
+          customer.id,
+          Math.min(input.cashbackToUseCents, permitido),
+        );
+      }
+
+      const totalCents = priced.totalCents - cashbackUsedCents;
+
+      /* Troco precisa cobrir o total DEPOIS do cashback — senao o
+         entregador levaria troco para um valor que o cliente nem vai
+         pagar. */
+      if (input.changeForCents !== undefined && input.changeForCents < totalCents) {
+        throw new BadRequestException(
+          `O valor para troco (${formatBRL(input.changeForCents)}) e menor que o total (${formatBRL(totalCents)}).`,
+        );
+      }
 
       /* Pagamento online nasce aguardando confirmacao do provedor; na
          entrega, o pedido ja entra confirmado para a cozinha. */
@@ -143,7 +182,8 @@ export class OrdersService {
           subtotalCents: priced.subtotalCents,
           deliveryFeeCents: priced.deliveryFeeCents,
           discountCents: priced.discountCents,
-          totalCents: priced.totalCents,
+          cashbackUsedCents,
+          totalCents,
           paymentMethod: input.paymentMethod,
           changeForCents: input.changeForCents ?? null,
           notes: input.notes ?? null,
@@ -589,6 +629,28 @@ export class OrdersService {
       await this.payments.refundIfPaid(orderId, order.number);
     }
 
+    /**
+     * Cashback so entra em pedido REALMENTE concluido (entregue ou
+     * retirado). Creditar antes — na confirmacao, por exemplo — obrigaria
+     * a "tirar de volta" no cancelamento, e se o cliente ja tivesse
+     * gasto o saldo o resultado seria saldo negativo. Ver DECISOES.md.
+     *
+     * Falha aqui NAO derruba a mudanca de status: o pedido ja foi
+     * entregue de fato, e travar isso por causa do cashback seria pior
+     * do que o credito atrasar. Fica registrado para conciliar.
+     */
+    if (nextStatus === OrderStatus.DELIVERED || nextStatus === OrderStatus.COMPLETED) {
+      try {
+        await this.cashback.creditarPorPedido(orderId);
+      } catch (error) {
+        this.logger.error(
+          `Pedido ${order.number} concluido, mas o cashback nao foi creditado. ` +
+            `Credite manualmente se o cliente cobrar.`,
+          error as Error,
+        );
+      }
+    }
+
     this.logger.log(`Pedido ${order.number}: ${order.status} -> ${nextStatus}`);
     return this.findById(orderId);
   }
@@ -804,6 +866,7 @@ function toOrderDto(order: OrderWithRelations) {
     subtotalCents: order.subtotalCents,
     deliveryFeeCents: order.deliveryFeeCents,
     discountCents: order.discountCents,
+    cashbackUsedCents: order.cashbackUsedCents,
     totalCents: order.totalCents,
     totalFormatted: formatBRL(order.totalCents),
 

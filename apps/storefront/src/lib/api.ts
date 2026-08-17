@@ -4,6 +4,7 @@
  * Em desenvolvimento o Vite faz proxy de /api para localhost:3333, entao o
  * navegador ve tudo na mesma origem — igual a producao.
  */
+import type { CashbackBalance } from '@adventure/shared';
 
 const BASE = import.meta.env['VITE_API_URL'] ?? '/api/v1';
 
@@ -180,6 +181,10 @@ export const api = {
   getMenu: () => request<Category[]>('/catalog/menu'),
 
   getStoreStatus: () => request<StoreStatus>('/store/status'),
+
+  /** Saldo de cashback do telefone informado no checkout. */
+  cashbackBalance: (phone: string) =>
+    request<CashbackBalance>(`/cashback/saldo?phone=${encodeURIComponent(phone)}`),
 
   quoteDelivery: (district: string) =>
     request<DeliveryQuote>('/delivery/quote', { method: 'POST', body: { district } }),

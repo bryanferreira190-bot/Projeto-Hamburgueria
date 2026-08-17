@@ -49,6 +49,7 @@ export function CheckoutPage() {
   const [dadosDoCartao, setDadosDoCartao] = useState<DadosDoCartao | null>(null);
   const [tokenizando, setTokenizando] = useState(false);
   const [aceitouPrivacidade, setAceitouPrivacidade] = useState(false);
+  const [usarCashback, setUsarCashback] = useState(true);
 
   /**
    * Chave gerada uma vez por sessao de checkout. Enviada em todas as
@@ -69,7 +70,32 @@ export function CheckoutPage() {
 
   const subtotal = subtotalCents();
   const deliveryFee = type === 'DELIVERY' ? (quote?.feeCents ?? 0) : 0;
-  const estimatedTotal = subtotal + deliveryFee;
+
+  /**
+   * CASHBACK
+   *
+   * So consulta com o telefone completo — e ele que identifica o cliente.
+   * O valor mostrado aqui e informativo: quem decide quanto pode ser
+   * abatido de verdade e o servidor, na criacao do pedido.
+   */
+  const telefoneCompleto = phone.replace(/\D/g, '');
+  const { data: cashback } = useQuery({
+    queryKey: ['cashback', telefoneCompleto],
+    queryFn: () => api.cashbackBalance(telefoneCompleto),
+    enabled: telefoneCompleto.length === 11,
+    staleTime: 60_000,
+  });
+
+  const saldoCashback = cashback?.saldoCents ?? 0;
+  /* Mesma conta do servidor (ver calcularResgateMaximo): o menor entre o
+     saldo e o teto da loja sobre o valor dos produtos. */
+  const cashbackDisponivel = Math.max(
+    0,
+    Math.min(saldoCashback, Math.floor((subtotal * (cashback?.maxRedeemPercent ?? 0)) / 100)),
+  );
+  const cashbackAplicado = usarCashback ? cashbackDisponivel : 0;
+
+  const estimatedTotal = Math.max(0, subtotal + deliveryFee - cashbackAplicado);
 
   const createOrder = useMutation({
     mutationFn: (payload: unknown) => api.createOrder(payload, idempotencyKey),
@@ -186,6 +212,9 @@ export function CheckoutPage() {
       paymentMethod,
       ...(couponCode.trim() ? { couponCode: couponCode.trim().toUpperCase() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
+      /* So um pedido: o servidor confere o saldo real e o teto da loja e
+         usa o menor valor. Ver createOrderSchema. */
+      ...(cashbackAplicado > 0 ? { cashbackToUseCents: cashbackAplicado } : {}),
       ...(paymentMethod === 'CASH_ON_DELIVERY'
         ? { changeForCents: Math.round(Number(changeFor.replace(',', '.')) * 100) }
         : {}),
@@ -441,6 +470,30 @@ export function CheckoutPage() {
             ))}
           </ul>
 
+          {/* So aparece para quem tem saldo — nao adianta anunciar
+              cashback para quem ainda nao tem nenhum. */}
+          {cashbackDisponivel > 0 && (
+            <label className="mb-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-verde/40 bg-verde/8 p-3">
+              <input
+                type="checkbox"
+                checked={usarCashback}
+                onChange={(event) => setUsarCashback(event.target.checked)}
+                className="mt-0.5 size-4 shrink-0 accent-verde"
+              />
+              <span className="text-sm">
+                <span className="font-bold text-verde">
+                  Usar {formatBRL(cashbackDisponivel)} de cashback
+                </span>
+                {saldoCashback > cashbackDisponivel && (
+                  <span className="block text-xs text-cinza-2">
+                    Você tem {formatBRL(saldoCashback)}. Neste pedido dá para usar até{' '}
+                    {formatBRL(cashbackDisponivel)}.
+                  </span>
+                )}
+              </span>
+            </label>
+          )}
+
           <div className="space-y-1.5 border-t border-borda pt-4 text-sm">
             <Row label="Subtotal" value={formatBRL(subtotal)} />
             {type === 'DELIVERY' && (
@@ -448,6 +501,12 @@ export function CheckoutPage() {
                 label="Taxa de entrega"
                 value={quote ? quote.feeFormatted : 'informe o bairro'}
               />
+            )}
+            {cashbackAplicado > 0 && (
+              <div className="flex justify-between text-verde">
+                <span>Cashback</span>
+                <span>− {formatBRL(cashbackAplicado)}</span>
+              </div>
             )}
             <div className="flex justify-between pt-2 text-base font-bold">
               <span>Total estimado</span>
