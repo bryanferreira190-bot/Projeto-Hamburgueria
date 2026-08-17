@@ -72,18 +72,47 @@ const envSchema = z.object({
   MERCADOPAGO_WEBHOOK_SECRET: z.string().optional().or(z.literal('')),
 
   /**
-   * WhatsApp Cloud API (Meta). Todas opcionais: sem elas o envio fica
-   * DORMENTE — o sistema registra no log o que teria mandado, e o resto
-   * do cashback funciona normalmente. Ver WhatsAppService.
+   * WHATSAPP CLOUD API (META)
+   *
+   * INTERRUPTOR GERAL. Com false (o padrao), nenhuma chamada sai para a
+   * Meta: o sistema registra no log o que enviaria e devolve sucesso
+   * simulado, para o resto continuar funcionando. Ligar e so trocar esta
+   * variavel — nenhuma linha de codigo muda. Ver WhatsAppService.
    */
-  /** Numero comercial mostrado ao cliente (so exibicao). */
-  WHATSAPP_PHONE_NUMBER: z.string().optional().or(z.literal('')),
-  /** Token permanente do System User da Meta. E segredo. */
-  WHATSAPP_TOKEN: z.string().optional().or(z.literal('')),
-  /** Id do numero no WhatsApp Business, nao o telefone em si. */
+  WHATSAPP_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((valor) => valor === 'true'),
+
+  /** Token PERMANENTE de System User. Segredo. */
+  WHATSAPP_ACCESS_TOKEN: z.string().optional().or(z.literal('')),
+  /** Id do numero DENTRO do WhatsApp Business, nao o telefone. */
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional().or(z.literal('')),
-  /** Nome do template aprovado que avisa o cashback expirando. */
-  WHATSAPP_TEMPLATE_CASHBACK: z.string().default('cashback_expirando'),
+  /** Id da WhatsApp Business Account. Usado para gestao de templates. */
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional().or(z.literal('')),
+  /**
+   * Versao da Graph API. Configuravel porque a Meta descontinua versao
+   * antiga com prazo: trocar aqui evita deploy de emergencia.
+   */
+  WHATSAPP_API_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/, 'Use o formato vXX.Y, como v23.0')
+    .default('v23.0'),
+
+  /**
+   * Segredo combinado com a Meta no cadastro do webhook, devolvido no
+   * desafio de verificacao. Escolhido por nos, nao gerado por eles.
+   */
+  WHATSAPP_VERIFY_TOKEN: z.string().optional().or(z.literal('')),
+  /**
+   * App Secret, usado para conferir a assinatura HMAC de cada webhook.
+   * Sem ele o webhook RECUSA tudo — melhor recusar do que aceitar
+   * evento que pode ter sido forjado.
+   */
+  WHATSAPP_APP_SECRET: z.string().optional().or(z.literal('')),
+
+  /** Numero comercial, so para exibicao ao cliente. */
+  WHATSAPP_PHONE_NUMBER: z.string().optional().or(z.literal('')),
 });
 
 function secretMessage(name: string): string {
@@ -107,6 +136,33 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
 
   const env = parsed.data;
+
+  /**
+   * Ligar o WhatsApp sem credencial nao pode passar em silencio.
+   *
+   * Sem esta checagem, errar o nome de uma variavel no Railway (facil:
+   * existe WHATSAPP_PHONE_NUMBER e WHATSAPP_PHONE_NUMBER_ID) faria o
+   * sistema subir normalmente e SIMULAR todos os envios — o dono so
+   * descobriria quando um cliente reclamasse de nao ter recebido nada.
+   * Falhar no boot e mais barato do que descobrir dias depois.
+   */
+  if (env.WHATSAPP_ENABLED) {
+    const faltando = (
+      [
+        ['WHATSAPP_ACCESS_TOKEN', env.WHATSAPP_ACCESS_TOKEN],
+        ['WHATSAPP_PHONE_NUMBER_ID', env.WHATSAPP_PHONE_NUMBER_ID],
+      ] as const
+    )
+      .filter(([, valor]) => !valor)
+      .map(([nome]) => nome);
+
+    if (faltando.length > 0) {
+      throw new Error(
+        `WHATSAPP_ENABLED=true, mas falta: ${faltando.join(', ')}. ` +
+          'Preencha as credenciais ou volte para WHATSAPP_ENABLED=false.',
+      );
+    }
+  }
 
   if (env.NODE_ENV === 'production') {
     const placeholders = (

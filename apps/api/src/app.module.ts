@@ -16,6 +16,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { StoreModule } from './modules/store/store.module';
+import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -26,12 +27,19 @@ import { StoreModule } from './modules/store/store.module';
     /**
      * Rate limiting em tres janelas simultaneas. Todas precisam ser
      * respeitadas, o que barra tanto rajada curta quanto abuso sustentado.
-     * Login e OTP tem limites proprios, definidos no controller.
+     *
+     * A JANELA DE 1 MINUTO PRECISA SE CHAMAR "default". O decorator
+     * `@Throttle({ default: { ... } })`, usado em login, criacao de
+     * pedido, rastreio e webhooks, procura um throttler com ESSE nome
+     * exato — com qualquer outro nome (era "long"), a metadata nunca e
+     * encontrada e o limite por rota simplesmente NAO VALE, silenciosamente.
+     * Confirmado na pratica: 8 chamadas seguidas passavam numa rota que
+     * declarava limite de 5/min. Ver DECISOES.md.
      */
     ThrottlerModule.forRoot([
       { name: 'short', ttl: 1_000, limit: 10 },
       { name: 'medium', ttl: 10_000, limit: 40 },
-      { name: 'long', ttl: 60_000, limit: 120 },
+      { name: 'default', ttl: 60_000, limit: 120 },
     ]),
 
     /* Tarefas com hora marcada — hoje so o aviso diario de cashback
@@ -47,6 +55,7 @@ import { StoreModule } from './modules/store/store.module';
     PaymentsModule,
     ReportsModule,
     CashbackModule,
+    WhatsAppModule,
   ],
   providers: [
     /**

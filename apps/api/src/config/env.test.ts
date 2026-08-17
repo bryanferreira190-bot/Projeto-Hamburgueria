@@ -106,4 +106,44 @@ describe('loadEnv', () => {
       /PUBLIC_API_URL/,
     );
   });
+
+  describe('WhatsApp', () => {
+    it('vem desligado por padrao', () => {
+      expect(loadEnv(validEnv).WHATSAPP_ENABLED).toBe(false);
+    });
+
+    it('desligado nao exige credencial nenhuma', () => {
+      expect(() => loadEnv({ ...validEnv, WHATSAPP_ENABLED: 'false' })).not.toThrow();
+    });
+
+    it('ligado SEM credencial derruba o boot em vez de simular em silencio', () => {
+      /* Sem isso, errar o nome de uma variavel no Railway faria o
+         sistema subir "funcionando" e nunca enviar nada — o dono so
+         descobriria pela reclamacao de um cliente. */
+      expect(() => loadEnv({ ...validEnv, WHATSAPP_ENABLED: 'true' })).toThrow(
+        /WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID/,
+      );
+    });
+
+    it('ligado com apenas metade das credenciais tambem derruba, dizendo o que falta', () => {
+      expect(() =>
+        loadEnv({ ...validEnv, WHATSAPP_ENABLED: 'true', WHATSAPP_ACCESS_TOKEN: 'tok' }),
+      ).toThrow(/WHATSAPP_PHONE_NUMBER_ID/);
+    });
+
+    it('ligado com as credenciais sobe normalmente', () => {
+      const env = loadEnv({
+        ...validEnv,
+        WHATSAPP_ENABLED: 'true',
+        WHATSAPP_ACCESS_TOKEN: 'tok',
+        WHATSAPP_PHONE_NUMBER_ID: '123',
+      });
+      expect(env.WHATSAPP_ENABLED).toBe(true);
+    });
+
+    it('a versao da API tem padrao e recusa formato invalido', () => {
+      expect(loadEnv(validEnv).WHATSAPP_API_VERSION).toBe('v23.0');
+      expect(() => loadEnv({ ...validEnv, WHATSAPP_API_VERSION: '23' })).toThrow(/vXX\.Y/);
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { CashbackAdminService } from './cashback-admin.service';
 import { CashbackExpiryJob } from './cashback-expiry.job';
 import { CashbackController } from './cashback.controller';
@@ -12,7 +12,7 @@ import { CashbackService } from './cashback.service';
  * pedido, so recebe o id.
  */
 @Module({
-  imports: [NotificationsModule],
+  imports: [WhatsAppModule],
   controllers: [CashbackController],
   providers: [CashbackService, CashbackAdminService, CashbackExpiryJob],
   exports: [CashbackService],

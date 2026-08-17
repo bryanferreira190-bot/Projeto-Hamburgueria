@@ -20,6 +20,15 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger:
       env.NODE_ENV === 'production' ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug'],
+    /**
+     * Guarda o corpo BRUTO das requisicoes, alem do JSON ja parseado.
+     *
+     * O webhook do WhatsApp assina o corpo exato que enviou (HMAC-SHA256
+     * com o App Secret). Reserializar o objeto ja parseado mudaria
+     * espacos e ordem de chaves, e a assinatura nunca bateria — a
+     * verificacao precisa dos bytes originais.
+     */
+    rawBody: true,
   });
 
   app.setGlobalPrefix('api/v1');

@@ -5,6 +5,92 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-17 — Rate limiting por rota estava INERTE no projeto inteiro
+
+Achado durante a auditoria do módulo de WhatsApp, mas o efeito era
+geral. `ThrottlerModule.forRoot()` registrava três janelas nomeadas
+`short`, `medium` e `long` — mas todos os `@Throttle({ default: {...} })`
+espalhados pelos controllers procuram um throttler chamado **`default`**.
+Como nenhum tinha esse nome, **a metadata nunca era encontrada e o limite
+por rota simplesmente não valia**, em silêncio.
+
+Afetava 10 rotas, incluindo as mais sensíveis: `/auth/admin/login`
+(proteção contra força bruta), criação de pedido, rastreio de pedido
+(a rota que já teve correção de LGPD) e o webhook do Mercado Pago.
+
+**Confirmado empiricamente**, antes e depois: 8 chamadas seguidas numa
+rota que declarava limite de 5/min passavam todas; depois de renomear a
+janela de 1 minuto de `long` para `default`, a 6ª passou a receber 429.
+
+Correção de uma linha (o nome da janela) em vez de editar 10 arquivos —
+e as janelas `short`/`medium` continuam valendo como proteção de rajada
+por cima do limite específico de cada rota.
+
+## 2026-08-17 — Integração WhatsApp Cloud API, dormente até ter credencial
+
+Módulo `whatsapp/` completo e **desligado por padrão**. Com
+`WHATSAPP_ENABLED=false`, nenhuma chamada sai para a Meta: registra no
+log o que enviaria e devolve sucesso *simulado*. Ligar é só preencher
+variável de ambiente — nenhuma linha de código muda.
+
+**`simulado` é parte do contrato de retorno.** Distingue "a Meta
+aceitou" de "está desligado e só foi registrado". Quem grava "aviso
+enviado" precisa checar esse campo: o job de cashback **não** carimba
+`expiryWarningSentAt` em envio simulado, senão marcaria como avisado
+quem nunca recebeu nada — e no dia em que a integração fosse ligada,
+essas pessoas já apareceriam como resolvidas.
+
+**Falha no boot se ligar sem credencial.** `WHATSAPP_ENABLED=true` sem
+token ou phone number id derruba a inicialização com a lista do que
+falta. Sem isso, errar o nome de uma variável no Railway (fácil: existe
+`WHATSAPP_PHONE_NUMBER` **e** `WHATSAPP_PHONE_NUMBER_ID`) faria o
+sistema subir "funcionando" e simular tudo — descoberto só pela
+reclamação de um cliente.
+
+**Cliente HTTP separado do serviço.** `MetaGraphClient` cuida de URL
+versionada, auth, timeout, retry e tradução de erro, sem saber o que é
+pedido ou cliente. Quando entrar outra chamada à Graph API (consultar
+template, listar números), ela reaproveita em vez de repetir tudo.
+
+**Retry só no que adianta repetir.** Token inválido, template reprovado
+e número que não recebe têm resposta idêntica na segunda tentativa —
+repetir só atrasa o diagnóstico. Limite de conta também **não** é
+repetido, apesar do nome: as janelas da Meta são de horas, e o backoff
+aqui é de ~1,2s no total; três tentativas seriam três chamadas
+garantidamente perdidas.
+
+**Log é saneado, não cru.** A primeira versão mascarava o telefone num
+campo e despejava o payload inteiro logo ao lado — com o número completo
+em `to` e o nome do cliente nos parâmetros do template. A auditoria
+pegou; `sanitizarPayload()` mantém o que serve para depurar (tipo, nome
+do template, quantas variáveis, tamanho) e troca os valores por
+marcadores.
+
+**Webhook falha fechado.** Sem `WHATSAPP_APP_SECRET` não há como
+conferir a assinatura HMAC, então recusa tudo. Aceitar evento não
+verificado deixaria qualquer um forjar "mensagem entregue" — mesmo
+critério do webhook do Mercado Pago. Exigiu `rawBody: true` no
+bootstrap: a assinatura é sobre os bytes originais, e reserializar o
+JSON já parseado mudaria espaços e ordem de chaves.
+
+**Códigos de erro da Meta revisados na auditoria.** A primeira versão
+tinha três errados, todos com custo real de diagnóstico: `133010` não é
+"número do cliente inválido" e sim **o número da loja não registrado**
+(faria procurar defeito no telefone do cliente por horas); `131005` é
+"access denied", não indisponibilidade (queimava 3 tentativas e apontava
+para o lado errado); `131052` é erro de mídia, não número inexistente.
+Adicionados os que faltavam e mais doem na prática: `131042`
+(faturamento pendente — o erro nº 1 ao ligar a integração) e `131049`
+(Meta optou por não entregar, que é o que costuma barrar template de
+marketing como o de cashback).
+
+**Só um template precisa de aprovação agora.** Os seis métodos de
+mensagem de pedido (`sendOrderReceived` etc.) existem, mas **nenhum
+ponto do código os chama** — só serão acionados quando o fluxo de pedido
+for integrado. Marcado com `emUso` no catálogo e exposto em
+`GET /whatsapp/status` como `precisaAprovarAgora`, para ninguém esperar
+dias pela Meta por mensagem que não vai sair.
+
 ## 2026-08-17 — Cashback de 5% com validade e aviso no WhatsApp
 
 Programa de fidelidade: 5% do valor pago volta como crédito, válido por

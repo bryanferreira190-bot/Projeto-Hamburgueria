@@ -1,12 +1,16 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { formatBRL } from '@adventure/shared';
-import { ENV } from '../../config/config.module';
-import type { Env } from '../../config/env';
 import { STORE_TIMEZONE, hojeNoFusoDaLoja } from '../../common/timezone';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import { WhatsAppService } from '../notifications/whatsapp.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { CashbackService } from './cashback.service';
+
+/**
+ * Ate quanto tempo o job pode gastar mandando aviso. Ver o uso, dentro
+ * do laco de envio.
+ */
+const TETO_DE_EXECUCAO_MS = 15 * 60_000;
 
 /**
  * AVISO DIARIO DE CASHBACK EXPIRANDO
@@ -27,7 +31,6 @@ export class CashbackExpiryJob {
     private readonly prisma: PrismaService,
     private readonly cashback: CashbackService,
     private readonly whatsapp: WhatsAppService,
-    @Inject(ENV) private readonly env: Env,
   ) {}
 
   @Cron('0 10 * * *', { timeZone: STORE_TIMEZONE })
@@ -93,20 +96,65 @@ export class CashbackExpiryJob {
     }
 
     let enviados = 0;
+    let simulados = 0;
+    const limiteDeTempo = Date.now() + TETO_DE_EXECUCAO_MS;
 
     for (const cliente of porCliente.values()) {
-      const ok = await this.whatsapp.enviarTemplate({
-        telefone: cliente.telefone,
-        template: this.env.WHATSAPP_TEMPLATE_CASHBACK,
-        /* Ordem casada com os {{1}} e {{2}} do template aprovado na
-           Meta — ver DECISOES.md para o texto exato submetido. */
-        variaveis: [primeiroNome(cliente.nome), formatBRL(cliente.totalCents)],
-      });
+      /**
+       * Teto de tempo: o envio e sequencial e cada mensagem pode custar
+       * ate ~30s no pior caso (Meta fora do ar + tentativas). Sem isto,
+       * uma noite ruim deixaria o job rodando por horas, atravessando o
+       * horario de pico. Quem sobrar continua elegivel amanha — o filtro
+       * `expiryWarningSentAt: null` garante isso.
+       */
+      if (Date.now() > limiteDeTempo) {
+        this.logger.warn(
+          `Teto de tempo do aviso de cashback atingido; ${porCliente.size - enviados - simulados} cliente(s) ficaram para a proxima execucao.`,
+        );
+        break;
+      }
 
-      if (!ok) continue;
+      const resultado = await this.whatsapp.sendCashbackExpiring(
+        cliente.telefone,
+        cliente.nome,
+        formatBRL(cliente.totalCents),
+      );
 
-      /* So carimba depois do envio confirmado: se a Meta recusou, o
-         cliente continua elegivel para a proxima tentativa. */
+      /**
+       * Falha GLOBAL para o job inteiro: credencial errada, numero da
+       * loja nao registrado ou limite de 24h da conta nao melhoram no
+       * proximo cliente. Insistir cliente a cliente so multiplicaria a
+       * chamada perdida e encheria o log com o mesmo erro.
+       */
+      if (
+        resultado.erro &&
+        (['CREDENCIAL_INVALIDA', 'CONFIGURACAO_INVALIDA', 'LIMITE_EXCEDIDO'] as const).includes(
+          resultado.erro.tipo as 'CREDENCIAL_INVALIDA',
+        )
+      ) {
+        this.logger.error(
+          `Aviso de cashback interrompido — ${resultado.erro.tipo}: ${resultado.erro.mensagem}`,
+        );
+        break;
+      }
+
+      if (!resultado.enviado) continue;
+
+      if (resultado.simulado) {
+        /**
+         * Envio esta desligado (WHATSAPP_ENABLED=false): NAO carimba.
+         *
+         * Carimbar aqui marcaria o aviso como enviado sem que nada
+         * tenha saido — e no dia em que a integracao fosse ligada,
+         * esses clientes ja apareceriam como "avisados" e nunca
+         * receberiam a mensagem.
+         */
+        simulados += 1;
+        continue;
+      }
+
+      /* So carimba depois do envio REAL confirmado: se a Meta recusou,
+         o cliente continua elegivel para a proxima tentativa. */
       await this.prisma.cashbackCredit.updateMany({
         where: { id: { in: cliente.creditoIds } },
         data: { expiryWarningSentAt: new Date() },
@@ -115,14 +163,9 @@ export class CashbackExpiryJob {
     }
 
     this.logger.log(
-      `Cashback expirando amanha: ${porCliente.size} cliente(s), ${enviados} aviso(s) enviado(s)`,
+      `Cashback expirando amanha: ${porCliente.size} cliente(s), ${enviados} aviso(s) enviado(s)` +
+        (simulados > 0 ? `, ${simulados} simulado(s) (WHATSAPP_ENABLED=false)` : ''),
     );
     return { clientes: porCliente.size, enviados };
   }
-}
-
-/** "Joao da Silva" -> "Joao". Sem nome, um tratamento neutro. */
-function primeiroNome(nome: string | null): string {
-  const primeiro = nome?.trim().split(/\s+/)[0];
-  return primeiro && primeiro.length > 1 ? primeiro : 'Tudo bem';
 }
