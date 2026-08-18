@@ -5,6 +5,26 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Kanban de pedidos: colunas de largura fixa com rolagem, não grid espremido
+
+O ajuste anterior (6 colunas lado a lado com `xl:grid-cols-6`) deixou
+cada coluna com ~190px — apertado demais para o cartão de pedido
+(itens, endereço, botões de ação). Trocado o `grid` por um `flex` com
+`overflow-x-auto`: cada coluna tem largura FIXA (`w-72`, 288px,
+perto do que cada uma tinha no layout original de 4 colunas) e a
+fileira toda rola na horizontal quando não cabe tudo de uma vez —
+o mesmo padrão que Trello, Linear e Jira usam para isto. `snap-x` +
+`snap-start` fazem a rolagem "encaixar" nas colunas em vez de parar
+no meio de uma.
+
+Container geral do painel (header, main, footer) alargado de
+`max-w-7xl` (1280px) para `max-w-[1600px]`, dando mais respiro em
+todas as páginas, não só no Kanban — em monitor largo a maioria das 6
+colunas cabe sem precisar rolar; em tela menor, rola. Nunca mais
+espremido, independente do tamanho da tela.
+
+---
+
 ## 2026-08-18 — Aviso de pedido novo preso à aba, e consulta de pedidos mais leve
 
 Dois problemas relatados: painel de pedidos demorando para carregar, e

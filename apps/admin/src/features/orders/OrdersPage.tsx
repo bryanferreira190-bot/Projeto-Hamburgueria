@@ -125,7 +125,16 @@ export function OrdersPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {/*
+        Colunas de LARGURA FIXA (w-72 = 288px) num flex com rolagem
+        horizontal, e nao um grid que aperta tudo para caber na tela: 6
+        colunas dividindo um grid ficavam com ~190px cada, estreitas demais
+        para o cartao de pedido (itens, endereco, botoes) — a mesma solucao
+        que qualquer board profissional (Trello, Linear, Jira) usa para
+        isto. Monitor bem largo mostra a maioria das 6 sem precisar rolar;
+        em telas menores, rola — sempre confortavel, nunca espremido.
+      */}
+      <div className="flex snap-x gap-4 overflow-x-auto pb-2">
         {COLUNAS.map((coluna) => {
           const daColuna = pedidos.filter((pedido) => pedido.status === coluna.status);
           const expandida = colunasExpandidas.has(coluna.status);
@@ -133,7 +142,7 @@ export function OrdersPage() {
           const escondidos = daColuna.length - visiveis.length;
 
           return (
-            <section key={coluna.status} className="min-w-0">
+            <section key={coluna.status} className="w-72 shrink-0 snap-start">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold">
                 <span aria-hidden>{coluna.icone}</span>
                 {coluna.titulo}

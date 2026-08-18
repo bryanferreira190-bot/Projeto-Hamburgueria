@@ -127,7 +127,7 @@ function Layout() {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-borda bg-preto/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-5 px-5 py-3">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-5 px-6 py-3">
           <div className="flex items-center gap-2.5">
             <img
               src="/logo.png"
@@ -188,7 +188,7 @@ function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-5 py-6">
+      <main className="mx-auto max-w-[1600px] px-6 py-6">
         {/* key={pathname} remonta o boundary a cada troca de aba — sem
             isto, uma aba que quebrasse deixaria as OUTRAS abas (que nunca
             tiveram problema) presas na mesma tela de erro depois disso. */}
@@ -217,7 +217,7 @@ function Layout() {
         </ErrorBoundary>
       </main>
 
-      <footer className="mx-auto max-w-7xl px-5 pb-6 text-center text-xs text-cinza-2/70">
+      <footer className="mx-auto max-w-[1600px] px-6 pb-6 text-center text-xs text-cinza-2/70">
         <span aria-hidden>🔒</span> Dados de clientes tratados conforme a{' '}
         <a
           href="https://loja.impactdev.site/privacidade"
