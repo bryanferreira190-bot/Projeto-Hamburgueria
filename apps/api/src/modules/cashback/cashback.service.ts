@@ -16,10 +16,10 @@ export interface SaldoDeCashback {
  * tabela `store`, nao aqui — sao regras comerciais, e mudar o percentual
  * nao deveria exigir deploy.
  *
- * Modelo de LOTES (ver CashbackCredit no schema): cada pedido concluido
- * gera um credito com validade propria. O saldo e a soma do que ainda
- * vale. Gastar consome primeiro o que vence antes, para o cliente nunca
- * perder valor que daria para ter usado.
+ * Modelo de LOTES (ver CashbackCredit no schema): cada pedido que entra
+ * em preparo gera um credito com validade propria. O saldo e a soma do
+ * que ainda vale. Gastar consome primeiro o que vence antes, para o
+ * cliente nunca perder valor que daria para ter usado.
  */
 @Injectable()
 export class CashbackService {
@@ -135,7 +135,15 @@ export class CashbackService {
   }
 
   /**
-   * Credita o cashback de um pedido concluido.
+   * Credita o cashback de um pedido.
+   *
+   * Chamado quando o pedido entra em PREPARO — antes da entrega, de
+   * proposito, para o cliente ver o saldo crescer logo depois de pedir,
+   * nao so depois de receber. O preco (subtotal, desconto, cashback
+   * usado) ja esta fechado nesse ponto, entao a conta e a mesma de
+   * sempre. A contrapartida e que um pedido cancelado DEPOIS de entrar
+   * em preparo ja tem credito solto — ver `anularCreditoDoPedido`, que
+   * desfaz exatamente essa sobra.
    *
    * A base e o valor PAGO EM DINHEIRO: subtotal menos cupom menos o
    * proprio cashback usado. Cashback nao gera cashback — senao o saldo
@@ -144,8 +152,8 @@ export class CashbackService {
    * direto da margem da loja.
    *
    * A constraint @@unique([orderId]) no banco e o que garante, de fato,
-   * que o mesmo pedido nunca gere dois creditos — mesmo que a conclusao
-   * seja processada duas vezes.
+   * que o mesmo pedido nunca gere dois creditos — mesmo que seja
+   * processado duas vezes.
    */
   async creditarPorPedido(orderId: string): Promise<void> {
     const order = await this.prisma.order.findUnique({
@@ -207,6 +215,40 @@ export class CashbackService {
         `Cashback de ${(amountCents / 100).toFixed(2)} creditado no pedido ${order.number}`,
       );
     }
+  }
+
+  /**
+   * Anula o que sobrou do credito de um pedido cancelado.
+   *
+   * O credito nasce quando o pedido entra em preparo — antes de estar de
+   * fato entregue. Se depois disso o pedido for cancelado, o credito
+   * precisa ser desfeito: senao o cliente fica com cashback de um pedido
+   * que nunca chegou. So zera o que ainda esta disponivel
+   * (`remainingCents`); a parte que ja tiver sido GASTA em outro pedido
+   * nao pode ser reavida sem criar saldo negativo em outro lugar — fica
+   * como perda aceita, do mesmo jeito que um estorno de cartao nao
+   * consegue tirar de volta um produto ja entregue por causa dele.
+   *
+   * Roda na MESMA transacao da mudanca de status, e nao depois: e uma
+   * escrita simples no banco (sem chamada de rede), entao nao ha motivo
+   * para arriscar o pedido cancelar mas o credito ficar de pe.
+   */
+  async anularCreditoDoPedido(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
+    const credito = await tx.cashbackCredit.findUnique({
+      where: { orderId },
+      select: { id: true, remainingCents: true },
+    });
+
+    if (!credito || credito.remainingCents <= 0) return;
+
+    await tx.cashbackCredit.update({
+      where: { id: credito.id },
+      data: { remainingCents: 0, expiredAt: new Date() },
+    });
+
+    this.logger.log(
+      `Pedido cancelado: anulado credito de cashback nao gasto (${(credito.remainingCents / 100).toFixed(2)})`,
+    );
   }
 
   /**

@@ -272,3 +272,61 @@ describe('CashbackService.creditarPorPedido', () => {
     expect(diasDeDiferenca).toBe(20);
   });
 });
+
+describe('CashbackService.anularCreditoDoPedido', () => {
+  function makeTx(credito: { id: string; remainingCents: number } | null) {
+    return {
+      cashbackCredit: {
+        findUnique: vi.fn().mockResolvedValue(credito),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    } as unknown as Prisma.TransactionClient;
+  }
+
+  it('zera o que sobrou de um credito nao gasto', async () => {
+    const { service } = makeService();
+    const tx = makeTx({ id: 'cred-1', remainingCents: 500 });
+
+    await service.anularCreditoDoPedido(tx, 'o1');
+
+    expect(tx.cashbackCredit.update).toHaveBeenCalledWith({
+      where: { id: 'cred-1' },
+      data: { remainingCents: 0, expiredAt: expect.any(Date) },
+    });
+  });
+
+  it('pedido sem credito nenhum (cancelado antes de PREPARING) nao toca no banco', async () => {
+    const { service } = makeService();
+    const tx = makeTx(null);
+
+    await service.anularCreditoDoPedido(tx, 'o1');
+
+    expect(tx.cashbackCredit.update).not.toHaveBeenCalled();
+  });
+
+  it('credito ja totalmente gasto nao toca no banco de novo', async () => {
+    const { service } = makeService();
+    /* Ja foi usado em outro pedido antes deste ser cancelado — nao ha
+       "o que sobrou" para anular, e reescrever a mesma linha a toa. */
+    const tx = makeTx({ id: 'cred-1', remainingCents: 0 });
+
+    await service.anularCreditoDoPedido(tx, 'o1');
+
+    expect(tx.cashbackCredit.update).not.toHaveBeenCalled();
+  });
+
+  it('anula so o que sobrou — nao mexe no que ja foi gasto em outro pedido', async () => {
+    const { service } = makeService();
+    /* Credito de 500 dos quais 350 ja foram gastos: so os 150 restantes
+       somem, os 350 ja gastos ficam como perda aceita (ver o comentario
+       do metodo). */
+    const tx = makeTx({ id: 'cred-1', remainingCents: 150 });
+
+    await service.anularCreditoDoPedido(tx, 'o1');
+
+    expect(tx.cashbackCredit.update).toHaveBeenCalledWith({
+      where: { id: 'cred-1' },
+      data: { remainingCents: 0, expiredAt: expect.any(Date) },
+    });
+  });
+});

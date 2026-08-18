@@ -15,6 +15,10 @@ export function CashbackPage() {
     queryKey: ['cashback'],
     queryFn: api.cashback,
     staleTime: 60_000,
+    /* Segunda tela ligada na cozinha: pedido muda de status na aba
+       Pedidos (que ja invalida esta query), mas tambem cobre quem so
+       tem esta aba aberta e nao vai mexer em pedido nenhuma. */
+    refetchInterval: 30_000,
   });
 
   const visiveis = useMemo(() => {
@@ -87,7 +91,7 @@ export function CashbackPage() {
             description={
               busca
                 ? 'Tente outro nome ou telefone.'
-                : 'O saldo aparece aqui assim que o primeiro pedido for entregue.'
+                : 'O saldo aparece aqui assim que o primeiro pedido entrar em preparo.'
             }
           />
         ) : (

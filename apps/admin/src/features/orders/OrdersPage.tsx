@@ -87,6 +87,11 @@ export function OrdersPage() {
       setErro(null);
       void queryClient.invalidateQueries({ queryKey: ['orders'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      /* Mudar status pode creditar (entra em preparo) ou anular (cancela)
+         cashback — sem isto, quem estiver com a aba Cashback aberta em
+         outra tela veria um numero desatualizado por ate 60s (staleTime
+         daquela query). */
+      void queryClient.invalidateQueries({ queryKey: ['cashback'] });
     },
     onError: (error) => {
       setErro(error instanceof ApiError ? error.detail : 'Não foi possível mudar o status.');
@@ -177,11 +182,7 @@ export function OrdersPage() {
         </p>
       )}
 
-      {/* xl:grid-cols-3, e nao 4: com as 6 colunas (as 4 originais + as
-          duas que faltavam), 3 por linha da duas fileiras cheias — a de
-          cima e "antes de sair da cozinha", a de baixo e "depois de
-          pronto". Com 4, a segunda fileira ficava com 2 colunas soltas. */}
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {COLUNAS.map((coluna) => {
           const daColuna = pedidos.filter((pedido) => pedido.status === coluna.status);
 

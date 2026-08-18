@@ -5,6 +5,51 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Cashback passa a creditar em PREPARING, não em DELIVERED/COMPLETED
+
+Mudança de regra pedida diretamente: o cliente quer ver o saldo crescer
+assim que a cozinha começa a preparar, não só depois de entregue/retirado.
+Substitui a decisão anterior (crédito só na entrega), registrada mais
+abaixo neste arquivo.
+
+Contrapartida aceita conscientemente: como `PREPARING → CANCELED` é uma
+transição válida, um pedido pode ser cancelado DEPOIS de já ter gerado
+crédito — e esse crédito pode até já ter sido gasto em outro pedido, se
+o cliente foi rápido. `CashbackService.anularCreditoDoPedido()` zera o
+que ainda não foi gasto no cancelamento (mesmo padrão já usado para
+devolver o uso de cupom); o que já foi gasto fica como perda aceita, do
+mesmo jeito que estornar um pedido não tira de volta o produto já
+entregue por causa dele. Roda na MESMA transação da mudança de status,
+não depois — é escrita pura no banco, sem chamada de rede envolvida.
+
+Verificado ao vivo: pedido criado, avançado só até PREPARING (sem
+avançar mais) já aparece com saldo disponível na consulta que o
+checkout usa; cancelado em seguida, o saldo volta a zero. Dados de
+teste removidos depois.
+
+## 2026-08-18 — "Saldo de cashback somando infinitamente": ledger investigado, não era bug
+
+O dono reportou que, depois de o cliente de teste gastar todo o saldo,
+o valor "não resetava" e continuava crescendo. Reconstruí a sequência
+real de 4 pedidos do cliente de teste (dados de produção) somando
+crédito x consumo: total creditado R$7,38, total gasto R$6,12, saldo
+restante R$1,26 — bate exatamente com a soma de `remainingCents` no
+banco. Também reproduzi o mesmo cenário do zero (creditar, gastar tudo,
+conferir zero, gerar novo crédito, conferir que não soma com o antigo)
+e o resultado bateu certo nos dois casos.
+
+Conclusão: o R$1,26 que pareceu "não resetado" era cashback NOVO,
+legitimamente ganho no último pedido da sequência — todo pedido
+concluído gera cashback de novo, isso é o programa funcionando, não um
+saldo antigo que sobrou.
+
+O que era real: o painel de Cashback (`staleTime: 60_000`) não se
+atualizava sozinho quando o status de um pedido mudava na aba Pedidos
+— quem estivesse com as duas abas abertas veria um número desatualizado
+por até 1 minuto. Corrigido invalidando a query `['cashback']` no
+`onSuccess` da mutação de status, e com `refetchInterval: 30_000` como
+rede de segurança para quem só tem a aba Cashback aberta.
+
 ## 2026-08-18 — Painel de pedidos não tinha coluna depois de "Prontos"
 
 Motivo real por trás de "o cashback não aparece no checkout": a lógica

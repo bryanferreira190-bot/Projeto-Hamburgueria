@@ -133,6 +133,7 @@ function makeService(opts: {
     calcularResgateMaximo: vi.fn().mockReturnValue(0),
     consumir: vi.fn().mockResolvedValue(0),
     creditarPorPedido: vi.fn().mockResolvedValue(undefined),
+    anularCreditoDoPedido: vi.fn().mockResolvedValue(undefined),
   } as unknown as CashbackService;
 
   const service = new OrdersService(prisma, pricing, store, delivery, payments, cashback);
@@ -218,6 +219,44 @@ describe('OrdersService.updateStatus — compare-and-swap', () => {
       data: { usageCount: { decrement: 1 } },
     });
     expect(payments.refundIfPaid).toHaveBeenCalledWith('o1', 'A001');
+  });
+
+  it('entrar em preparo credita o cashback do pedido', async () => {
+    const tx = makeTx();
+    const { service, cashback } = makeService({
+      tx,
+      order: { id: 'o1', number: 'A001', status: OrderStatus.CONFIRMED, type: OrderType.PICKUP, couponId: null },
+    });
+
+    await service.updateStatus('o1', OrderStatus.PREPARING);
+
+    /* Cedo de proposito: o cliente ve o saldo crescer assim que a cozinha
+       comeca, nao so depois de entregue. Ver DECISOES.md. */
+    expect(cashback.creditarPorPedido).toHaveBeenCalledWith('o1');
+  });
+
+  it('entregar/concluir NAO credita cashback de novo — ja foi creditado ao entrar em preparo', async () => {
+    const tx = makeTx();
+    const { service, cashback } = makeService({
+      tx,
+      order: { id: 'o1', number: 'A001', status: OrderStatus.OUT_FOR_DELIVERY, type: OrderType.DELIVERY, couponId: null },
+    });
+
+    await service.updateStatus('o1', OrderStatus.DELIVERED);
+
+    expect(cashback.creditarPorPedido).not.toHaveBeenCalled();
+  });
+
+  it('cancelamento anula o que sobrou do cashback ja creditado, na mesma transacao', async () => {
+    const tx = makeTx();
+    const { service, cashback } = makeService({
+      tx,
+      order: { id: 'o1', number: 'A001', status: OrderStatus.PREPARING, type: OrderType.PICKUP, couponId: null },
+    });
+
+    await service.updateStatus('o1', OrderStatus.CANCELED, { reason: 'Cliente desistiu' });
+
+    expect(cashback.anularCreditoDoPedido).toHaveBeenCalledWith(tx, 'o1');
   });
 
   it('recusa transicao invalida (ex.: pedido ja entregue) sem tocar no banco', async () => {

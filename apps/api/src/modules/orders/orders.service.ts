@@ -619,6 +619,14 @@ export class OrdersService {
           data: { usageCount: { decrement: 1 } },
         });
       }
+
+      /* Cancelamento tambem anula o que sobrou de cashback deste pedido
+         — ele pode ja ter sido creditado, se o pedido tinha chegado a
+         PREPARING antes de ser cancelado. Ver creditarPorPedido abaixo
+         e o comentario em anularCreditoDoPedido. */
+      if (nextStatus === OrderStatus.CANCELED) {
+        await this.cashback.anularCreditoDoPedido(tx, orderId);
+      }
     });
 
     /* Fora da transacao de proposito: chamada de rede nao deveria acontecer
@@ -630,21 +638,24 @@ export class OrdersService {
     }
 
     /**
-     * Cashback so entra em pedido REALMENTE concluido (entregue ou
-     * retirado). Creditar antes — na confirmacao, por exemplo — obrigaria
-     * a "tirar de volta" no cancelamento, e se o cliente ja tivesse
-     * gasto o saldo o resultado seria saldo negativo. Ver DECISOES.md.
+     * Cashback credita quando o pedido entra em PREPARO — antes da
+     * entrega, de proposito, para o cliente ver o saldo crescer mais
+     * cedo. Contrapartida aceita: se o pedido for cancelado depois disso,
+     * o credito ja pode ter sido criado (e ate gasto em outro pedido).
+     * `anularCreditoDoPedido`, chamado no bloco de cancelamento acima,
+     * desfaz o que ainda nao foi gasto; o que ja foi gasto fica como
+     * perda aceita. Ver DECISOES.md.
      *
-     * Falha aqui NAO derruba a mudanca de status: o pedido ja foi
-     * entregue de fato, e travar isso por causa do cashback seria pior
-     * do que o credito atrasar. Fica registrado para conciliar.
+     * Falha aqui NAO derruba a mudanca de status: o pedido ja esta em
+     * preparo de fato, e travar isso por causa do cashback seria pior do
+     * que o credito atrasar. Fica registrado para conciliar.
      */
-    if (nextStatus === OrderStatus.DELIVERED || nextStatus === OrderStatus.COMPLETED) {
+    if (nextStatus === OrderStatus.PREPARING) {
       try {
         await this.cashback.creditarPorPedido(orderId);
       } catch (error) {
         this.logger.error(
-          `Pedido ${order.number} concluido, mas o cashback nao foi creditado. ` +
+          `Pedido ${order.number} em preparo, mas o cashback nao foi creditado. ` +
             `Credite manualmente se o cliente cobrar.`,
           error as Error,
         );
