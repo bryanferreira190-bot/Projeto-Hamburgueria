@@ -5,6 +5,50 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Cancelamento automático de PIX vencido (números "repetidos" no painel)
+
+O dono reportou números de pedido "saindo repetidos" na loja e no painel.
+Investigação: a numeração reinicia a cada dia por design (`A001` de hoje
+não é o mesmo `A001` de ontem — ver `nextOrderNumber` e o comentário em
+`common/timezone.ts`), e o banco tem constraint garantindo que nunca
+existam dois pedidos com o mesmo número no mesmo dia (confirmado, zero
+duplicatas reais). O que causava a aparência de repetição: **17 pedidos
+de dias diferentes (14 a 18/08) nunca chegaram a um status final** e
+ficavam todos visíveis ao mesmo tempo no Kanban — um "A001" de dias
+atrás ao lado do "A001" de hoje.
+
+Dos 17: 2 eram PIX de verdade vencidos e nunca pagos (um deles da
+Vanessa, 17/08 — conferido: QR code de ambiente de TESTE do Mercado
+Pago, `ORDTST...`, já expirado havia mais de um dia, não era cliente
+real esperando). Os outros 15 eram pedidos de teste (cliente TESTE,
+"renan", "brahyam" — nome do próprio dono no git — e 2 manuais sem
+telefone). Confirmado com o dono e cancelados todos via
+`OrdersService.updateStatus(..., CANCELED)` — não deletados do banco,
+para preservar o histórico — o que automaticamente disparou estorno
+(no-op, nenhum estava pago), devolução de cupom (nenhum tinha) e
+anulação de cashback já creditado (um deles, A007, já tinha R$5,00
+creditado por ter passado por PREPARING antes de cancelar — zerado
+corretamente pelo `anularCreditoDoPedido`).
+
+**Causa raiz real, corrigida**: só PIX fica parado em `PENDING_PAYMENT`
+esperando pagamento — cartão resolve na hora, aprovado ou recusado, na
+própria chamada ao Mercado Pago (`OrdersService.create`). Sem nenhum
+job cuidando disso, um QR code que ninguém escaneou ficava preso para
+sempre: nenhuma tela do painel tem botão para isso, e o pedido nunca
+finalizado poluía o Kanban indefinidamente.
+
+`ExpiredPixJob` roda a cada 10 minutos, cancela pedidos PIX cujo
+`pixExpiresAt` passou há mais de 10 minutos (a margem existe porque o
+webhook do Mercado Pago pode chegar um pouco atrasado mesmo quando o
+cliente pagou dentro do prazo — cancelar exatamente no vencimento
+arriscaria cancelar um pedido pago, e `avancarPedidoConformePagamento`
+só age em pedido ainda `PENDING_PAYMENT`, então um webhook atrasado
+demais seria ignorado). O CAS já existente em `updateStatus` protege a
+corrida rara: se o pagamento for confirmado bem no meio-tempo, o
+cancelamento simplesmente falha com `ConflictException` para aquele
+pedido específico, sem derrubar o lote inteiro. Testado ao vivo contra
+produção: cancelou exatamente os 2 PIX vencidos de verdade, mais nada.
+
 ## 2026-08-18 — Cashback passa a creditar em PREPARING, não em DELIVERED/COMPLETED
 
 Mudança de regra pedida diretamente: o cliente quer ver o saldo crescer
