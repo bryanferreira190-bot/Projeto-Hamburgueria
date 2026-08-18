@@ -55,6 +55,9 @@ function rotuloDoPagamento(metodo: string): string {
   return PAYMENT_METHOD_LABELS[metodo as PaymentMethod] ?? metodo;
 }
 
+/** Quantos cartoes cada coluna mostra antes do botao "ver mais". */
+const CARTOES_POR_COLUNA = 5;
+
 export function OrdersPage() {
   const queryClient = useQueryClient();
   const [busca, setBusca] = useState('');
@@ -63,6 +66,10 @@ export function OrdersPage() {
   const [somAtivo, setSomAtivo] = useState(
     () => localStorage.getItem(CHAVE_DO_SOM) !== 'desligado',
   );
+  /* Uma coluna cheia (pico do fim de semana, por exemplo) nao deveria
+     empurrar as outras para fora da tela — cada coluna comeca fechada
+     e so mostra tudo se alguem pedir. */
+  const [colunasExpandidas, setColunasExpandidas] = useState<Set<OrderStatus>>(new Set());
 
   /* So dispara a busca 300ms depois da ultima tecla — sem isto, cada
      tecla digitada virava uma chamada HTTP nova (queryKey mudando a
@@ -75,7 +82,8 @@ export function OrdersPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['orders', buscaDebounced],
-    queryFn: () => api.orders({ limit: 100, ...(buscaDebounced ? { search: buscaDebounced } : {}) }),
+    queryFn: () =>
+      api.orders({ limit: 100, ...(buscaDebounced ? { search: buscaDebounced } : {}) }),
     /* A cozinha precisa ver pedido novo sem apertar F5. */
     refetchInterval: 15_000,
   });
@@ -182,9 +190,12 @@ export function OrdersPage() {
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {COLUNAS.map((coluna) => {
           const daColuna = pedidos.filter((pedido) => pedido.status === coluna.status);
+          const expandida = colunasExpandidas.has(coluna.status);
+          const visiveis = expandida ? daColuna : daColuna.slice(0, CARTOES_POR_COLUNA);
+          const escondidos = daColuna.length - visiveis.length;
 
           return (
             <section key={coluna.status} className="min-w-0">
@@ -200,7 +211,7 @@ export function OrdersPage() {
                     Nenhum pedido
                   </div>
                 ) : (
-                  daColuna.map((pedido) => (
+                  visiveis.map((pedido) => (
                     <CartaoPedido
                       key={pedido.id}
                       pedido={pedido}
@@ -214,6 +225,36 @@ export function OrdersPage() {
                       ocupado={mudarStatus.isPending}
                     />
                   ))
+                )}
+
+                {escondidos > 0 && (
+                  <Button
+                    size="sm"
+                    variant="contorno"
+                    full
+                    onClick={() =>
+                      setColunasExpandidas((atual) => new Set(atual).add(coluna.status))
+                    }
+                  >
+                    Mostrar mais {escondidos}
+                  </Button>
+                )}
+
+                {expandida && daColuna.length > CARTOES_POR_COLUNA && (
+                  <Button
+                    size="sm"
+                    variant="contorno"
+                    full
+                    onClick={() =>
+                      setColunasExpandidas((atual) => {
+                        const proximo = new Set(atual);
+                        proximo.delete(coluna.status);
+                        return proximo;
+                      })
+                    }
+                  >
+                    Mostrar menos
+                  </Button>
                 )}
               </div>
             </section>
@@ -289,7 +330,6 @@ function CartaoPedido({
         {pedido.items.map((item, index) => (
           <li key={index}>
             <span className="text-amarelo">{item.quantity}×</span> {item.productName}
-
             {/* Adicionais em verde e observacao em vermelho: na correria da
                 cozinha, a cor separa "poe isso" de "tira isso" antes mesmo
                 de ler. */}
@@ -299,7 +339,6 @@ function CartaoPedido({
                 {opcao.name}
               </span>
             ))}
-
             {item.notes && (
               <span className="block pl-4 font-semibold text-vermelho-2">⚠ {item.notes}</span>
             )}
@@ -357,71 +396,142 @@ function CartaoPedido({
   );
 }
 
+/** Linhas por pagina do historico. */
+const LINHAS_POR_PAGINA = 15;
+
 function Historico({ pedidos }: { pedidos: OrderRow[] }) {
+  const [pagina, setPagina] = useState(1);
+
+  const totalDePaginas = Math.max(1, Math.ceil(pedidos.length / LINHAS_POR_PAGINA));
+  /* A lista muda (novo pedido finalizado, busca digitada) e a pagina
+     antiga pode nao existir mais — volta para a ultima valida em vez de
+     mostrar uma tabela vazia com botao "anterior" sem efeito. */
+  const paginaAtual = Math.min(pagina, totalDePaginas);
+  const inicio = (paginaAtual - 1) * LINHAS_POR_PAGINA;
+  const daPagina = pedidos.slice(inicio, inicio + LINHAS_POR_PAGINA);
+
   if (pedidos.length === 0) {
     return <Vazio icon="📋" title="Nenhum pedido finalizado ainda" />;
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-borda text-left text-xs text-cinza-2 uppercase">
-            <th className="pb-2 font-semibold">Nº</th>
-            <th className="pb-2 font-semibold">Cliente</th>
-            <th className="pb-2 font-semibold">Pagamento</th>
-            <th className="pb-2 font-semibold">Status</th>
-            <th className="pb-2 text-right font-semibold">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pedidos.slice(0, 15).map((pedido) => (
-            <tr key={pedido.id} className="border-b border-borda/50">
-              <td className="py-2">
-                <DadosDoCliente pedido={pedido}>
-                  <span className="font-bold text-amarelo">{pedido.number}</span>
-                </DadosDoCliente>
-              </td>
-              <td className="py-2">
-                <DadosDoCliente pedido={pedido}>
-                  <span className="text-cinza">
-                    {pedido.isManual && <span aria-hidden>🧾 </span>}
-                    {nomeDoCliente(pedido) ?? 'Sem nome'}
-                  </span>
-                </DadosDoCliente>
-              </td>
-              <td className="py-2 text-xs whitespace-nowrap">
-                {ehPagamentoNaEntrega(pedido.paymentMethod) ? (
-                  /* Mesma linguagem visual do cartao da cozinha: no
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-borda text-left text-xs text-cinza-2 uppercase">
+              <th className="pb-2 font-semibold">Nº</th>
+              <th className="pb-2 font-semibold">Cliente</th>
+              <th className="pb-2 font-semibold">Pagamento</th>
+              <th className="pb-2 font-semibold">Status</th>
+              <th className="pb-2 text-right font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {daPagina.map((pedido) => (
+              <tr key={pedido.id} className="border-b border-borda/50">
+                <td className="py-2">
+                  <DadosDoCliente pedido={pedido}>
+                    <span className="font-bold text-amarelo">{pedido.number}</span>
+                  </DadosDoCliente>
+                </td>
+                <td className="py-2">
+                  <DadosDoCliente pedido={pedido}>
+                    <span className="text-cinza">
+                      {pedido.isManual && <span aria-hidden>🧾 </span>}
+                      {nomeDoCliente(pedido) ?? 'Sem nome'}
+                    </span>
+                  </DadosDoCliente>
+                </td>
+                <td className="py-2 text-xs whitespace-nowrap">
+                  {ehPagamentoNaEntrega(pedido.paymentMethod) ? (
+                    /* Mesma linguagem visual do cartao da cozinha: no
                      historico o que se procura e justamente conferir se um
                      pedido era para cobrar na entrega. */
-                  <span className="font-semibold text-amarelo">
-                    <span aria-hidden>
-                      {pedido.paymentMethod === 'CASH_ON_DELIVERY' ? '💵 ' : '🏧 '}
+                    <span className="font-semibold text-amarelo">
+                      <span aria-hidden>
+                        {pedido.paymentMethod === 'CASH_ON_DELIVERY' ? '💵 ' : '🏧 '}
+                      </span>
+                      {rotuloDoPagamento(pedido.paymentMethod)}
                     </span>
-                    {rotuloDoPagamento(pedido.paymentMethod)}
-                  </span>
-                ) : (
-                  <span className="text-cinza-2">{rotuloDoPagamento(pedido.paymentMethod)}</span>
-                )}
-              </td>
-              <td className="py-2">
-                <span
-                  className={cx(
-                    'rounded-full px-2 py-0.5 text-xs',
-                    pedido.status === OrderStatus.CANCELED
-                      ? 'bg-[#d03b3b]/15 text-[#d03b3b]'
-                      : 'bg-[#0ca30c]/15 text-[#0ca30c]',
+                  ) : (
+                    <span className="text-cinza-2">{rotuloDoPagamento(pedido.paymentMethod)}</span>
                   )}
-                >
-                  {ORDER_STATUS_LABELS[pedido.status as OrderStatus] ?? pedido.status}
-                </span>
-              </td>
-              <td className="tabular py-2 text-right">{pedido.totalFormatted}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                </td>
+                <td className="py-2">
+                  <span
+                    className={cx(
+                      'rounded-full px-2 py-0.5 text-xs',
+                      pedido.status === OrderStatus.CANCELED
+                        ? 'bg-[#d03b3b]/15 text-[#d03b3b]'
+                        : 'bg-[#0ca30c]/15 text-[#0ca30c]',
+                    )}
+                  >
+                    {ORDER_STATUS_LABELS[pedido.status as OrderStatus] ?? pedido.status}
+                  </span>
+                </td>
+                <td className="tabular py-2 text-right">{pedido.totalFormatted}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {totalDePaginas > 1 && (
+        <Paginacao total={totalDePaginas} atual={paginaAtual} onMudar={setPagina} />
+      )}
     </div>
+  );
+}
+
+function Paginacao({
+  total,
+  atual,
+  onMudar,
+}: {
+  total: number;
+  atual: number;
+  onMudar: (pagina: number) => void;
+}) {
+  return (
+    <nav
+      className="mt-4 flex items-center justify-center gap-1.5"
+      aria-label="Paginas do historico"
+    >
+      <Button
+        size="sm"
+        variant="contorno"
+        disabled={atual === 1}
+        onClick={() => onMudar(atual - 1)}
+      >
+        ‹
+      </Button>
+
+      {Array.from({ length: total }, (_, indice) => indice + 1).map((numero) => (
+        <button
+          key={numero}
+          type="button"
+          onClick={() => onMudar(numero)}
+          aria-current={numero === atual ? 'page' : undefined}
+          className={cx(
+            'size-8 shrink-0 rounded-lg text-xs font-bold transition-colors',
+            numero === atual
+              ? 'bg-amarelo text-preto'
+              : 'text-cinza-2 hover:bg-preto-3 hover:text-cinza',
+          )}
+        >
+          {numero}
+        </button>
+      ))}
+
+      <Button
+        size="sm"
+        variant="contorno"
+        disabled={atual === total}
+        onClick={() => onMudar(atual + 1)}
+      >
+        ›
+      </Button>
+    </nav>
   );
 }

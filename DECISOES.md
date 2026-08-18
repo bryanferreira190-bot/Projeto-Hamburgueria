@@ -5,6 +5,36 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Kanban de pedidos: 6 colunas lado a lado, expandir/recolher, histórico paginado
+
+Pedido direto do dono: as 6 colunas (as 4 originais + Saiu para
+entrega/Aguardando retirada) deveriam ficar lado a lado, não em duas
+fileiras. Grid mudou de `xl:grid-cols-4` para
+`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6` — em telas
+largas as 6 cabem numa fileira só, usando toda a largura disponível
+dentro do container já existente (`max-w-7xl px-5` em `App.tsx`, que já
+garante a margem lateral sem precisar de nada novo aqui).
+
+Contrapartida aceita: com 6 colunas dividindo a largura, cada uma fica
+bem mais estreita que antes (~193px em vez de ~298px numa tela de
+1280px). Foi uma escolha explícita do dono, ciente disso.
+
+**Coluna que não acaba mais**: cada coluna mostra só os 5 primeiros
+pedidos (`CARTOES_POR_COLUNA`), com um botão "Mostrar mais N" para
+revelar o resto — e "Mostrar menos" para recolher de volta. Estado por
+coluna (`Set<OrderStatus>`), não por pedido: expandir "Em preparo" não
+mexe nas outras. Sobrevive ao refetch de 15s porque a chave é o status
+da coluna, não a lista de pedidos em si.
+
+**Histórico paginado**: 15 linhas por página, com botões numerados (não
+só anterior/próximo) porque o teto prático de pedidos numa página é
+baixo (`api.orders({ limit: 100 })`), no máximo 7 páginas — não precisa
+de reticências nem lógica de página "por perto". Página atual é
+sempre `Math.min(pagina, totalDePaginas)`: se a lista encolher (busca
+nova, pedido cancelado some do histórico) e a página guardada não
+existir mais, cai para a última válida em vez de mostrar tabela vazia
+com botão "anterior" que não faz nada.
+
 ## 2026-08-18 — Cancelamento automático de PIX vencido (números "repetidos" no painel)
 
 O dono reportou números de pedido "saindo repetidos" na loja e no painel.
