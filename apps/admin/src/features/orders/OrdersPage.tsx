@@ -17,7 +17,16 @@ import { cx } from '../../lib/cx';
 import { destravarSom, tocarAvisoDePedido } from '../../lib/som';
 import { useAvisoDePedidoNovo } from './useAvisoDePedidoNovo';
 
-/** Colunas do painel de cozinha, na ordem em que o pedido caminha. */
+/**
+ * Colunas do painel de cozinha, na ordem em que o pedido caminha.
+ *
+ * Precisa cobrir TODOS os status nao-terminais da maquina de estados
+ * (order-status.ts). Faltando OUT_FOR_DELIVERY/AWAITING_PICKUP aqui, o
+ * pedido some do painel ao sair de "Prontos" — cai direto no Historico,
+ * que e so leitura, e fica preso ali para sempre: sem botao para marcar
+ * como entregue/concluido, nenhum pedido chega ao status que credita
+ * cashback. Foi exatamente isso que aconteceu ate agora.
+ */
 const COLUNAS: { status: OrderStatus; titulo: string; icone: string }[] = [
   {
     status: OrderStatus.PENDING_PAYMENT,
@@ -27,6 +36,8 @@ const COLUNAS: { status: OrderStatus; titulo: string; icone: string }[] = [
   { status: OrderStatus.CONFIRMED, titulo: 'Novos', icone: '🔔' },
   { status: OrderStatus.PREPARING, titulo: 'Em preparo', icone: '👨‍🍳' },
   { status: OrderStatus.READY, titulo: 'Prontos', icone: '🍔' },
+  { status: OrderStatus.OUT_FOR_DELIVERY, titulo: 'Saiu para entrega', icone: '🛵' },
+  { status: OrderStatus.AWAITING_PICKUP, titulo: 'Aguardando retirada', icone: '🏪' },
 ];
 
 const CHAVE_DO_SOM = 'aviso-sonoro-de-pedido';
@@ -166,7 +177,11 @@ export function OrdersPage() {
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      {/* xl:grid-cols-3, e nao 4: com as 6 colunas (as 4 originais + as
+          duas que faltavam), 3 por linha da duas fileiras cheias — a de
+          cima e "antes de sair da cozinha", a de baixo e "depois de
+          pronto". Com 4, a segunda fileira ficava com 2 colunas soltas. */}
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {COLUNAS.map((coluna) => {
           const daColuna = pedidos.filter((pedido) => pedido.status === coluna.status);
 

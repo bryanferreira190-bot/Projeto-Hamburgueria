@@ -5,6 +5,38 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Painel de pedidos não tinha coluna depois de "Prontos"
+
+Motivo real por trás de "o cashback não aparece no checkout": a lógica
+de saldo, crédito e consulta sempre esteve correta — verificado de
+ponta a ponta criando um pedido de teste, avançando pelo mesmo
+`OrdersService.updateStatus()` que o painel chama, e conferindo o
+crédito gerado e a resposta de `GET /cashback/saldo` (depois removido,
+sem deixar rastro).
+
+O problema estava um passo antes: `CashbackService.creditarPorPedido()`
+só roda quando o pedido chega a `DELIVERED`/`COMPLETED`, e **nenhum
+pedido no banco jamais chegou lá**. O Kanban do painel
+(`OrdersPage.tsx`) tinha colunas só até `READY` — `PENDING_PAYMENT`,
+`CONFIRMED`, `PREPARING`, `READY`. A máquina de estados
+(`order-status.ts`) vai além: `READY → OUT_FOR_DELIVERY/AWAITING_PICKUP
+→ DELIVERED/COMPLETED`. Ao clicar em "avançar" num pedido pronto, ele
+saía da lista de colunas e caía direto no "Histórico recente" — que é
+só leitura, sem nenhum botão. O pedido ficava preso ali para sempre, e
+o crédito de cashback nunca disparava para ninguém.
+
+Corrigido adicionando as duas colunas que faltavam (`Saiu para entrega`,
+`Aguardando retirada`), reaproveitando 100% do componente `CartaoPedido`
+já existente — o botão "avançar" já calculava a transição certa via
+`nextStatusFor` (`DELIVERED` para entrega, `COMPLETED` para retirada),
+só não tinha onde aparecer. Grid mudou de `xl:grid-cols-4` para
+`xl:grid-cols-3`, para as 6 colunas caberem em duas fileiras cheias em
+vez de uma de 4 e outra de 2 soltas.
+
+Os 4 pedidos que estavam presos em `OUT_FOR_DELIVERY` na produção eram
+todos do cliente de teste (`TESTE`, telefone `11970706978`) — nenhum
+cliente real afetado.
+
 ## 2026-08-17 — Rate limiting contava o IP do Cloudflare, não o do cliente
 
 Descoberto ao verificar em produção a correção do throttler (logo
