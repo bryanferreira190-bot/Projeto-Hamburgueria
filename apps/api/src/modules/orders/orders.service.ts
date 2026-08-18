@@ -506,6 +506,19 @@ export class OrdersService {
         : {}),
     };
 
+    /**
+     * SEM statusHistory nem payments aqui, de proposito: nenhum dos dois
+     * e usado pelo painel (ver OrderRow em apps/admin/src/lib/api.ts —
+     * nao declara `timeline` nem `payment`). So a tela de acompanhamento
+     * do cliente (findByNumber/findById, mais abaixo) usa esses campos.
+     *
+     * Essa diferenca importa MUITO aqui: esta e a consulta mais pesada
+     * do sistema (ate 100 pedidos, com itens e adicionais) e a mais
+     * chamada (o painel repete a cada 15s, o dia inteiro). Buscar e
+     * serializar o historico completo de status de cada pedido, sem
+     * ninguem ler o resultado do outro lado, era trabalho puro jogado
+     * fora — tanto no banco quanto nos bytes que voltam pela rede.
+     */
     const rows = await this.prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -514,10 +527,6 @@ export class OrdersService {
       include: {
         items: { include: { options: true } },
         customer: { select: { name: true, phone: true } },
-        statusHistory: { orderBy: { createdAt: 'asc' } },
-        /* So o pagamento mais recente interessa aqui — nao ha reemissao
-           de PIX hoje, entao um pedido tem no maximo um Payment. */
-        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
 
@@ -525,7 +534,7 @@ export class OrdersService {
     const page = hasMore ? rows.slice(0, filter.limit) : rows;
 
     return {
-      orders: page.map(toOrderDto),
+      orders: page.map((row) => toOrderDto({ ...row, statusHistory: [], payments: [] })),
       nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null,
     };
   }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router';
 import { hasRoleLevel, AdminRole } from '@adventure/shared';
 import { Button, Spinner } from './components/ui';
@@ -9,8 +9,13 @@ import { LoginPage } from './features/auth/LoginPage';
 import { BalcaoPage } from './features/balcao/BalcaoPage';
 import { CashbackPage } from './features/cashback/CashbackPage';
 import { OrdersPage } from './features/orders/OrdersPage';
+import { usePedidosGlobais } from './features/orders/usePedidosGlobais';
+import { useAvisoDePedidoNovo } from './features/orders/useAvisoDePedidoNovo';
+import { destravarSom, tocarAvisoDePedido } from './lib/som';
 import { api } from './lib/api';
 import { useAuth } from './lib/auth';
+
+const CHAVE_DO_SOM = 'aviso-sonoro-de-pedido';
 
 /**
  * O dashboard carrega sob demanda porque o Recharts responde por mais da
@@ -71,10 +76,44 @@ function Portao() {
 function Layout() {
   const { admin, clear } = useAuth();
   const location = useLocation();
+  const [somAtivo, setSomAtivo] = useState(
+    () => localStorage.getItem(CHAVE_DO_SOM) !== 'desligado',
+  );
 
   /* A cozinha nao precisa ver faturamento — o menu esconde o que o papel
      nao acessa, e a API recusa de qualquer forma. */
   const podeVerRelatorios = admin ? hasRoleLevel(admin.role, AdminRole.MANAGER) : false;
+
+  /**
+   * Buscado AQUI, no Layout — que fica montado o tempo todo enquanto
+   * logado — e nao dentro de OrdersPage. Antes, sair da aba Pedidos
+   * parava o polling inteiro: nem o aviso sonoro tocava, nem o numero
+   * "em andamento" atualizava, e voltar para Pedidos mostrava o
+   * carregamento do zero em vez dos dados que ja estavam ali um segundo
+   * atras. Ver usePedidosGlobais.
+   */
+  const { pedidos, emAndamento, isLoading: carregandoPedidos } = usePedidosGlobais();
+
+  useAvisoDePedidoNovo(pedidos, somAtivo, carregandoPedidos);
+
+  /* O navegador so libera audio depois de alguma interacao com a pagina, e
+     o aviso toca sozinho — quando o pedido chega pelo refetch, sem
+     ninguem clicar. O primeiro clique em qualquer lugar do painel destrava
+     o audio para os avisos seguintes, em qualquer aba. */
+  useEffect(() => {
+    if (!somAtivo) return;
+
+    const destravar = () => void destravarSom();
+    document.addEventListener('pointerdown', destravar, { once: true });
+    return () => document.removeEventListener('pointerdown', destravar);
+  }, [somAtivo]);
+
+  function alternarSom() {
+    const proximo = !somAtivo;
+    setSomAtivo(proximo);
+    localStorage.setItem(CHAVE_DO_SOM, proximo ? 'ligado' : 'desligado');
+    if (proximo) void tocarAvisoDePedido();
+  }
 
   const sair = async () => {
     try {
@@ -103,7 +142,9 @@ function Layout() {
           </div>
 
           <nav className="flex gap-1">
-            <Aba para="/pedidos">Pedidos</Aba>
+            <Aba para="/pedidos" contador={emAndamento.length}>
+              Pedidos
+            </Aba>
             <Aba para="/balcao">Balcão</Aba>
             {/* Cashback e informacao comercial (quanto a loja "deve" em
                 saldo) e traz telefone de cliente — mesmo criterio do
@@ -113,6 +154,29 @@ function Layout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
+            {/* Sozinho aqui na barra, e nao dentro da pagina Pedidos: o
+                aviso toca em qualquer aba, entao o controle precisa estar
+                acessivel de qualquer aba tambem. */}
+            <button
+              type="button"
+              onClick={alternarSom}
+              aria-pressed={somAtivo}
+              title={
+                somAtivo
+                  ? 'Aviso sonoro ligado — clique para desligar'
+                  : 'Aviso sonoro desligado — clique para ligar e ouvir'
+              }
+              className={cx(
+                'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2.5 text-xs font-bold transition-colors',
+                somAtivo
+                  ? 'border-amarelo/40 bg-amarelo/10 text-amarelo'
+                  : 'border-borda text-cinza-2 hover:text-cinza',
+              )}
+            >
+              <span aria-hidden>{somAtivo ? '🔔' : '🔕'}</span>
+              <span className="hidden sm:inline">Som</span>
+            </button>
+
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold">{admin?.name}</p>
               <p className="text-xs text-cinza-2">{traduzirPapel(admin?.role)}</p>
@@ -169,18 +233,30 @@ function Layout() {
   );
 }
 
-function Aba({ para, children }: { para: string; children: React.ReactNode }) {
+function Aba({
+  para,
+  contador,
+  children,
+}: {
+  para: string;
+  /** Quando presente, mostra a contagem mesmo fora da aba ativa. */
+  contador?: number;
+  children: React.ReactNode;
+}) {
   return (
     <NavLink
       to={para}
       className={({ isActive }) =>
         cx(
-          'rounded-lg px-4 py-2 text-sm font-bold transition-colors',
+          'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold transition-colors',
           isActive ? 'bg-carvao text-white' : 'text-cinza hover:text-white',
         )
       }
     >
       {children}
+      {Boolean(contador) && (
+        <span className="rounded-full bg-vermelho px-1.5 py-0.5 text-xs">{contador}</span>
+      )}
     </NavLink>
   );
 }

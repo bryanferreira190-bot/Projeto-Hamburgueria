@@ -5,6 +5,57 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Aviso de pedido novo preso à aba, e consulta de pedidos mais leve
+
+Dois problemas relatados: painel de pedidos demorando para carregar, e
+pedido novo só "aparecendo" enquanto o dono estava na aba Pedidos.
+
+**Causa raiz do segundo problema**: o polling de 15s (`useQuery` com
+`refetchInterval`) e o hook do aviso sonoro (`useAvisoDePedidoNovo`)
+viviam DENTRO do componente `OrdersPage`. Saindo para Balcão ou
+Cashback, o componente desmontava, o polling parava e o aviso sonoro
+parava de tocar — e ao voltar para Pedidos, sem cache quente, a tela
+mostrava o carregamento do zero de novo. Isso também explica boa parte
+do primeiro problema: não era só a consulta em si, era reconstruir tudo
+do zero toda vez que se voltava para a aba.
+
+Corrigido subindo o polling para o `Layout` (`usePedidosGlobais`, novo
+hook em `features/orders/`), que fica montado o tempo todo enquanto
+logado, independente da rota. `OrdersPage` passou a ler os MESMOS dados
+(mesma chave de query `['orders']`, deduplicada pelo React Query) em
+vez de fazer sua própria busca — trocar de aba e voltar agora é
+instantâneo, e o aviso sonoro/indicador visual funcionam em qualquer
+tela. O toggle de som e o contador de "pedidos em andamento" saíram da
+página e foram para a barra de navegação (visível em qualquer aba),
+já que o aviso também passou a valer em qualquer aba.
+
+Busca continua sendo uma consulta À PARTE (`enabled` só quando há
+termo digitado) — é um recorte diferente, filtrado no servidor, que não
+faz sentido compartilhar com o polling global.
+
+**Gate por papel**: `DELIVERY` é um papel válido no sistema mas não tem
+acesso à rota de pedidos (`@RequireRole(KITCHEN)` na API — DELIVERY é
+o único papel abaixo de KITCHEN na hierarquia). Como o Layout agora
+busca isto em QUALQUER página, sem guarda um admin desse papel teria
+uma chamada falhando de 15 em 15s em toda tela, não só em Pedidos.
+`usePedidosGlobais` só ativa a consulta com `hasRoleLevel(role,
+KITCHEN)`.
+
+**Consulta mais leve**: `OrdersService.list()` — a rota mais chamada do
+sistema (repetida a cada 15s, o dia inteiro) — buscava `statusHistory`
+completo e `payments` de cada pedido, sem que o painel administrativo
+lesse nenhum dos dois campos (`OrderRow`, o tipo usado pelo painel, nem
+declara `timeline` ou `payment`). Só a tela de acompanhamento do
+cliente usa esses campos, e ela passa por `findById`/`findByNumber`,
+não por `list()`. Removidos do `include` da consulta de listagem;
+`toOrderDto` recebe `statusHistory: []` e `payments: []` sintéticos
+nesse caminho, produzindo `timeline: []` e `payment: null` — exatamente
+o que o painel já ignorava antes. Medido contra produção: 39 pedidos,
+73ms, 35KB — sem o histórico completo de status de cada pedido
+carregado e serializado à toa a cada pedido, a cada 15 segundos.
+
+---
+
 ## 2026-08-18 — Kanban de pedidos: 6 colunas lado a lado, expandir/recolher, histórico paginado
 
 Pedido direto do dono: as 6 colunas (as 4 originais + Saiu para

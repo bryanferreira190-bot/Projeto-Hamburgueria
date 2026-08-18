@@ -14,36 +14,10 @@ import { ApiError, api, nomeDoCliente, type OrderRow } from '../../lib/api';
 import { Button, Card, Input, Spinner, Vazio } from '../../components/ui';
 import { DadosDoCliente } from '../../components/DadosDoCliente';
 import { cx } from '../../lib/cx';
-import { destravarSom, tocarAvisoDePedido } from '../../lib/som';
-import { useAvisoDePedidoNovo } from './useAvisoDePedidoNovo';
+import { COLUNAS, usePedidosGlobais } from './usePedidosGlobais';
 
-/**
- * Colunas do painel de cozinha, na ordem em que o pedido caminha.
- *
- * Precisa cobrir TODOS os status nao-terminais da maquina de estados
- * (order-status.ts). Faltando OUT_FOR_DELIVERY/AWAITING_PICKUP aqui, o
- * pedido some do painel ao sair de "Prontos" — cai direto no Historico,
- * que e so leitura, e fica preso ali para sempre: sem botao para marcar
- * como entregue/concluido, nenhum pedido chega ao status que credita
- * cashback. Foi exatamente isso que aconteceu ate agora.
- */
-const COLUNAS: { status: OrderStatus; titulo: string; icone: string }[] = [
-  {
-    status: OrderStatus.PENDING_PAYMENT,
-    titulo: 'Aguardando pagamento',
-    icone: '⏳',
-  },
-  { status: OrderStatus.CONFIRMED, titulo: 'Novos', icone: '🔔' },
-  { status: OrderStatus.PREPARING, titulo: 'Em preparo', icone: '👨‍🍳' },
-  { status: OrderStatus.READY, titulo: 'Prontos', icone: '🍔' },
-  { status: OrderStatus.OUT_FOR_DELIVERY, titulo: 'Saiu para entrega', icone: '🛵' },
-  { status: OrderStatus.AWAITING_PICKUP, titulo: 'Aguardando retirada', icone: '🏪' },
-];
-
-const CHAVE_DO_SOM = 'aviso-sonoro-de-pedido';
-
-/* Referencia estavel: `data?.orders ?? []` criaria um array novo a cada
-   render e faria o efeito do aviso rodar a toa o tempo todo. */
+/* Referencia estavel: um array novo a cada render dispararia efeitos a
+   toa em quem depende deste resultado. */
 const SEM_PEDIDOS: OrderRow[] = [];
 
 /** Pagar na entrega e o oposto de pagar pelo site — ver isOnlinePayment. */
@@ -63,9 +37,6 @@ export function OrdersPage() {
   const [busca, setBusca] = useState('');
   const [buscaDebounced, setBuscaDebounced] = useState('');
   const [erro, setErro] = useState<string | null>(null);
-  const [somAtivo, setSomAtivo] = useState(
-    () => localStorage.getItem(CHAVE_DO_SOM) !== 'desligado',
-  );
   /* Uma coluna cheia (pico do fim de semana, por exemplo) nao deveria
      empurrar as outras para fora da tela — cada coluna comeca fechada
      e so mostra tudo se alguem pedir. */
@@ -80,13 +51,24 @@ export function OrdersPage() {
     return () => clearTimeout(temporizador);
   }, [busca]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['orders', buscaDebounced],
-    queryFn: () =>
-      api.orders({ limit: 100, ...(buscaDebounced ? { search: buscaDebounced } : {}) }),
-    /* A cozinha precisa ver pedido novo sem apertar F5. */
-    refetchInterval: 15_000,
+  /**
+   * Sem busca, os dados vem prontos do Layout (usePedidosGlobais) — ja
+   * estao quentes no cache antes mesmo desta pagina montar, entao trocar
+   * de aba e voltar para Pedidos nao mostra spinner nenhum. So dispara
+   * uma consulta PROPRIA quando ha termo de busca: e um recorte diferente
+   * (filtro no servidor), que nao faz sentido compartilhar com o polling
+   * global.
+   */
+  const buscaAtiva = buscaDebounced.length > 0;
+  const { pedidos: pedidosGlobais, isLoading: carregandoGlobal } = usePedidosGlobais();
+  const { data: dadosDaBusca, isLoading: carregandoBusca } = useQuery({
+    queryKey: ['orders', 'busca', buscaDebounced],
+    queryFn: () => api.orders({ limit: 100, search: buscaDebounced }),
+    enabled: buscaAtiva,
   });
+
+  const pedidos = buscaAtiva ? (dadosDaBusca?.orders ?? SEM_PEDIDOS) : pedidosGlobais;
+  const carregando = buscaAtiva ? carregandoBusca : carregandoGlobal;
 
   const mudarStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
@@ -106,34 +88,7 @@ export function OrdersPage() {
     },
   });
 
-  const pedidos = data?.orders ?? SEM_PEDIDOS;
-
-  useAvisoDePedidoNovo(pedidos, somAtivo, isLoading || Boolean(busca));
-
-  /**
-   * O navegador so libera audio depois de alguma interacao com a pagina, e
-   * o aviso toca sozinho — quando o pedido chega pelo refetch, sem
-   * ninguem clicar. Entao o primeiro clique em qualquer lugar destrava o
-   * som para os avisos seguintes.
-   */
-  useEffect(() => {
-    if (!somAtivo) return;
-
-    const destravar = () => void destravarSom();
-    document.addEventListener('pointerdown', destravar, { once: true });
-    return () => document.removeEventListener('pointerdown', destravar);
-  }, [somAtivo]);
-
-  function alternarSom() {
-    const proximo = !somAtivo;
-    setSomAtivo(proximo);
-    localStorage.setItem(CHAVE_DO_SOM, proximo ? 'ligado' : 'desligado');
-    /* Ligar e um clique: aproveita para destravar o audio e ja deixa
-       ouvir como o aviso soa, em vez de descobrir no primeiro pedido. */
-    if (proximo) void tocarAvisoDePedido();
-  }
-
-  if (isLoading) return <Spinner label="Carregando pedidos" />;
+  if (carregando) return <Spinner label="Carregando pedidos" />;
 
   const emAndamento = pedidos.filter((pedido) =>
     COLUNAS.some((coluna) => coluna.status === pedido.status),
@@ -152,26 +107,6 @@ export function OrdersPage() {
         </h1>
 
         <div className="flex flex-1 items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={alternarSom}
-            aria-pressed={somAtivo}
-            title={
-              somAtivo
-                ? 'Aviso sonoro ligado — clique para desligar'
-                : 'Aviso sonoro desligado — clique para ligar e ouvir'
-            }
-            className={cx(
-              'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2.5 text-xs font-bold transition-colors',
-              somAtivo
-                ? 'border-amarelo/40 bg-amarelo/10 text-amarelo'
-                : 'border-borda text-cinza-2 hover:text-cinza',
-            )}
-          >
-            <span aria-hidden>{somAtivo ? '🔔' : '🔕'}</span>
-            <span className="hidden sm:inline">Som</span>
-          </button>
-
           <Input
             value={busca}
             onChange={(event) => setBusca(event.target.value)}

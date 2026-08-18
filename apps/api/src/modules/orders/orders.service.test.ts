@@ -363,3 +363,47 @@ describe('OrdersService.create — idempotencia e colisao concorrente', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
+
+describe('OrdersService.list', () => {
+  /**
+   * O painel administrativo sondando isto a cada 15s e a consulta mais
+   * repetida do sistema — statusHistory e payments nunca sao lidos pelo
+   * painel (so pela tela de acompanhamento do cliente, que usa
+   * findById/findByNumber, nao list). Buscar os dois aqui seria trabalho
+   * jogado fora a cada pedido, a cada 15 segundos. Ver DECISOES.md.
+   */
+  function makeListService(pedidos: Record<string, unknown>[]) {
+    const prisma = {
+      order: { findMany: vi.fn().mockResolvedValue(pedidos.map((p) => fullOrder(p))) },
+    } as unknown as PrismaService;
+
+    const service = new OrdersService(
+      prisma,
+      {} as OrderPricingService,
+      {} as StoreService,
+      {} as DeliveryService,
+      {} as PaymentsService,
+      {} as CashbackService,
+    );
+
+    return { service, prisma };
+  }
+
+  it('nao pede statusHistory nem payments ao banco', async () => {
+    const { service, prisma } = makeListService([]);
+
+    await service.list({ limit: 20 });
+
+    const consulta = (prisma.order.findMany as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(consulta.include).not.toHaveProperty('statusHistory');
+    expect(consulta.include).not.toHaveProperty('payments');
+  });
+
+  it('mesmo sem buscar do banco, devolve timeline vazia e payment nulo — nunca undefined', async () => {
+    const { service } = makeListService([{ id: 'o1', number: 'A001' }]);
+
+    const resultado = await service.list({ limit: 20 });
+
+    expect(resultado.orders[0]).toMatchObject({ timeline: [], payment: null });
+  });
+});
