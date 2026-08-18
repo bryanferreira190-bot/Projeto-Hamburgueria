@@ -5,6 +5,30 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Barra superior do painel quebrava no celular
+
+Consequência dos últimos ajustes: mover o botão de som e o contador de
+"em andamento" para a barra superior (para funcionarem em qualquer
+aba, não só em Pedidos) engordou uma barra que já estava no limite —
+logo + 4 abas (Pedidos, Balcão, Cashback, Dashboard) + som + nome do
+admin + Sair, tudo numa linha sem `flex-wrap` nem rolagem. Em tela de
+celular (~375–428px) isso passa fácil de 600px de largura somada,
+estourando a tela.
+
+Corrigido sem esconder nada: logo e o bloco da direita (som/admin/sair)
+ficam com `shrink-0` — largura fixa, sempre visíveis por inteiro — e
+só o `<nav>` do meio vira uma faixa com `overflow-x-auto` (rolagem
+horizontal própria, sem afetar o resto da barra). O `min-w-0` no nav é
+o que faz isso funcionar: sem ele, um item flex nunca encolhe além do
+tamanho do próprio conteúdo, e a barra inteira voltaria a estourar em
+vez de deixar só as abas rolarem. Cada aba ganhou `shrink-0
+whitespace-nowrap` para não ter o texto espremido ao rolar.
+
+`main`/`footer`/`header` também ganharam `px-4` no celular (`sm:px-6`
+a partir daí), dando um respiro a mais nas telas mais estreitas.
+
+---
+
 ## 2026-08-18 — Setas de rolagem do Kanban logo abaixo do título
 
 A rolagem horizontal das colunas (commit anterior) funcionava só pela

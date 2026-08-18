@@ -127,8 +127,8 @@ function Layout() {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-borda bg-preto/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1600px] items-center gap-5 px-6 py-3">
-          <div className="flex items-center gap-2.5">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 sm:gap-5 sm:px-6">
+          <div className="flex shrink-0 items-center gap-2.5">
             <img
               src="/logo.png"
               alt=""
@@ -141,7 +141,14 @@ function Layout() {
             </span>
           </div>
 
-          <nav className="flex gap-1">
+          {/*
+            min-w-0 e essencial aqui: sem ele, um flex item nunca encolhe
+            alem do tamanho do proprio conteudo, e o overflow-x-auto abaixo
+            nunca chega a ativar — a barra inteira estouraria a largura da
+            tela no celular em vez de deixar so os proprios botoes rolarem.
+            Cada Aba tem shrink-0 para nao espremer o texto ao rolar.
+          */}
+          <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
             <Aba para="/pedidos" contador={emAndamento.length}>
               Pedidos
             </Aba>
@@ -153,7 +160,7 @@ function Layout() {
             {podeVerRelatorios && <Aba para="/dashboard">Dashboard</Aba>}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {/* Sozinho aqui na barra, e nao dentro da pagina Pedidos: o
                 aviso toca em qualquer aba, entao o controle precisa estar
                 acessivel de qualquer aba tambem. */}
@@ -188,7 +195,7 @@ function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] px-6 py-6">
+      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6">
         {/* key={pathname} remonta o boundary a cada troca de aba — sem
             isto, uma aba que quebrasse deixaria as OUTRAS abas (que nunca
             tiveram problema) presas na mesma tela de erro depois disso. */}
@@ -217,7 +224,7 @@ function Layout() {
         </ErrorBoundary>
       </main>
 
-      <footer className="mx-auto max-w-[1600px] px-6 pb-6 text-center text-xs text-cinza-2/70">
+      <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-center text-xs text-cinza-2/70 sm:px-6">
         <span aria-hidden>🔒</span> Dados de clientes tratados conforme a{' '}
         <a
           href="https://loja.impactdev.site/privacidade"
@@ -248,7 +255,7 @@ function Aba({
       to={para}
       className={({ isActive }) =>
         cx(
-          'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold transition-colors',
+          'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold whitespace-nowrap transition-colors sm:px-4',
           isActive ? 'bg-carvao text-white' : 'text-cinza hover:text-white',
         )
       }
