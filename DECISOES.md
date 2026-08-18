@@ -5,6 +5,21 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Setas de rolagem do Kanban logo abaixo do título
+
+A rolagem horizontal das colunas (commit anterior) funcionava só pela
+barra nativa do navegador — que fica na base do container, depois de
+toda a altura dos cartões. Numa tela que a cozinha deixa aberta o dia
+inteiro, isso é longe demais da mão de quem está olhando o topo.
+
+Adicionadas duas setas (‹ ›) logo abaixo do título "Pedidos", que
+chamam `scrollBy({ left, behavior: 'smooth' })` no mesmo container via
+`ref` — controlam exatamente a mesma rolagem, só que acessível sem
+precisar descer a tela. A barra nativa continua funcionando (scroll do
+mouse/trackpad), as setas são um atalho a mais, não substituem.
+
+---
+
 ## 2026-08-18 — Kanban de pedidos: colunas de largura fixa com rolagem, não grid espremido
 
 O ajuste anterior (6 colunas lado a lado com `xl:grid-cols-6`) deixou

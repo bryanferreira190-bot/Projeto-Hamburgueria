@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ORDER_STATUS_LABELS,
   OrderStatus,
@@ -41,6 +41,18 @@ export function OrdersPage() {
      empurrar as outras para fora da tela — cada coluna comeca fechada
      e so mostra tudo se alguem pedir. */
   const [colunasExpandidas, setColunasExpandidas] = useState<Set<OrderStatus>>(new Set());
+
+  /**
+   * As setas logo abaixo do titulo controlam o MESMO scroll horizontal
+   * das colunas. Sem elas, a unica forma de rolar seria a barra do
+   * navegador, que fica la embaixo, depois de toda a altura dos cartoes
+   * — longe demais para ser pratico numa tela que a cozinha usa o dia
+   * inteiro.
+   */
+  const kanbanRef = useRef<HTMLDivElement>(null);
+  function rolarKanban(direcao: 1 | -1) {
+    kanbanRef.current?.scrollBy({ left: direcao * 320, behavior: 'smooth' });
+  }
 
   /* So dispara a busca 300ms depois da ultima tecla — sem isto, cada
      tecla digitada virava uma chamada HTTP nova (queryKey mudando a
@@ -116,6 +128,28 @@ export function OrdersPage() {
         </div>
       </header>
 
+      {/* Setas logo abaixo do titulo, e nao so a barra de rolagem nativa
+          la embaixo das colunas — mais perto da mao de quem esta olhando
+          o topo da tela. */}
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          size="sm"
+          variant="contorno"
+          onClick={() => rolarKanban(-1)}
+          aria-label="Rolar para a esquerda"
+        >
+          ‹
+        </Button>
+        <Button
+          size="sm"
+          variant="contorno"
+          onClick={() => rolarKanban(1)}
+          aria-label="Rolar para a direita"
+        >
+          ›
+        </Button>
+      </div>
+
       {erro && (
         <p
           role="alert"
@@ -134,7 +168,7 @@ export function OrdersPage() {
         isto. Monitor bem largo mostra a maioria das 6 sem precisar rolar;
         em telas menores, rola — sempre confortavel, nunca espremido.
       */}
-      <div className="flex snap-x gap-4 overflow-x-auto pb-2">
+      <div ref={kanbanRef} className="flex snap-x gap-4 overflow-x-auto pb-2">
         {COLUNAS.map((coluna) => {
           const daColuna = pedidos.filter((pedido) => pedido.status === coluna.status);
           const expandida = colunasExpandidas.has(coluna.status);
