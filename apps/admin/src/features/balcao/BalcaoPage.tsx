@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatBRL, type PaymentMethod } from '@adventure/shared';
 import {
   ApiError,
@@ -52,12 +52,54 @@ export function BalcaoPage() {
 
   const [erro, setErro] = useState<string | null>(null);
   const [lancado, setLancado] = useState<OrderRow | null>(null);
+  /* Precisa ser confirmado de novo a cada conflito NOVO — trocar o
+     telefone ou o nome depois de marcar isto reabre a checagem, para o
+     clique de "sim, e a mesma pessoa" nao valer para um numero diferente
+     digitado em seguida. */
+  const [confirmouConflito, setConfirmouConflito] = useState(false);
 
   const { data: categorias, isLoading } = useQuery({
     queryKey: ['menu'],
     queryFn: api.menu,
     staleTime: 5 * 60_000,
   });
+
+  /**
+   * Cadastro e por telefone: se o numero digitado ja pertence a outra
+   * pessoa, lancar o pedido RENOMEIA o cliente errado sem avisar
+   * ninguem — foi exatamente isso que aconteceu (ver DECISOES.md). Essa
+   * consulta mostra o nome ja associado ao numero ANTES de confirmar, a
+   * tempo de quem esta atendendo perceber "espera, esse nao e o cliente
+   * que eu tenho na minha frente".
+   */
+  const [telefoneDebounced, setTelefoneDebounced] = useState('');
+  useEffect(() => {
+    const temporizador = setTimeout(() => setTelefoneDebounced(telefone), 300);
+    return () => clearTimeout(temporizador);
+  }, [telefone]);
+
+  const digitosDebounced = telefoneDebounced.replace(/\D/g, '');
+  const { data: clienteExistente } = useQuery({
+    queryKey: ['customer-lookup', digitosDebounced],
+    queryFn: () => api.customerLookup(digitosDebounced),
+    enabled: digitosDebounced.length === 11,
+    staleTime: 30_000,
+  });
+
+  const nomeExistente = clienteExistente?.name ?? null;
+  /* So alerta quando os nomes DIVERGEM de verdade — nome em branco nao e
+     conflito, e o mesmo nome batendo e so confirmacao de que e o mesmo
+     cliente de sempre. */
+  const conflitoDeNome = Boolean(
+    nomeExistente && nome.trim() && nome.trim().toLowerCase() !== nomeExistente.toLowerCase(),
+  );
+
+  /* Editar nome ou telefone de novo invalida uma confirmacao anterior —
+     senao "sim, e a mesma pessoa" ficaria valendo para um numero ou nome
+     diferente digitado logo em seguida. */
+  useEffect(() => {
+    setConfirmouConflito(false);
+  }, [nome, telefone]);
 
   const lancar = useMutation({
     mutationFn: (payload: ManualOrderPayload) => api.createManualOrder(payload),
@@ -81,11 +123,10 @@ export function BalcaoPage() {
     [itens],
   );
 
-  const visiveis = useMemo(() => filtrar(categorias, busca, categoriaAtiva), [
-    categorias,
-    busca,
-    categoriaAtiva,
-  ]);
+  const visiveis = useMemo(
+    () => filtrar(categorias, busca, categoriaAtiva),
+    [categorias, busca, categoriaAtiva],
+  );
 
   function limpar() {
     setItens([]);
@@ -139,6 +180,13 @@ export function BalcaoPage() {
     const digitos = telefone.replace(/\D/g, '');
     if (digitos.length > 0 && digitos.length !== 11) {
       setErro('O telefone precisa ter DDD e 9 dígitos, ou ficar em branco.');
+      return;
+    }
+
+    /* Defesa a mais alem do botao desabilitado: se de algum jeito o
+       estado ficar fora de sincronia, isto ainda barra o envio. */
+    if (conflitoDeNome && !confirmouConflito) {
+      setErro('Confirme que é o mesmo cliente antes de lançar — ou corrija o WhatsApp.');
       return;
     }
 
@@ -336,6 +384,35 @@ export function BalcaoPage() {
                 onChange={(event) => setTelefone(mascararTelefone(event.target.value))}
                 placeholder="WhatsApp (opcional)"
               />
+
+              {/* Cadastro e por telefone: sem este aviso, digitar um numero
+                  que ja e de outra pessoa renomeava o cliente errado sem
+                  ninguem perceber (ver DECISOES.md). */}
+              {conflitoDeNome ? (
+                <div className="rounded-lg border border-amarelo/40 bg-amarelo/10 px-3 py-2">
+                  <p className="text-xs font-semibold text-amarelo">
+                    ⚠ Esse WhatsApp já está cadastrado como{' '}
+                    <span className="font-bold">{nomeExistente}</span>. Se lançar assim, o cadastro
+                    será renomeado para "{nome.trim()}" — confira o número antes de continuar.
+                  </p>
+                  <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-amarelo">
+                    <input
+                      type="checkbox"
+                      checked={confirmouConflito}
+                      onChange={(event) => setConfirmouConflito(event.target.checked)}
+                      className="size-4 accent-amarelo"
+                    />
+                    É a mesma pessoa, pode renomear
+                  </label>
+                </div>
+              ) : (
+                nomeExistente && (
+                  <p className="rounded-lg border border-verde/40 bg-verde/10 px-3 py-2 text-xs text-verde">
+                    ✓ Cliente já cadastrado: <span className="font-bold">{nomeExistente}</span>
+                  </p>
+                )
+              )}
+
               <p className="text-xs text-cinza-2">
                 Com WhatsApp, o cliente também acompanha o pedido pelo site.
               </p>
@@ -410,7 +487,7 @@ export function BalcaoPage() {
               variant="amarelo"
               onClick={enviar}
               loading={lancar.isPending}
-              disabled={itens.length === 0}
+              disabled={itens.length === 0 || (conflitoDeNome && !confirmouConflito)}
             >
               Lançar pedido
             </Button>
@@ -468,7 +545,10 @@ function assinaturaDoItem(
 ): string {
   /* Ordenado para "bacon + cheddar" e "cheddar + bacon" contarem como a
      mesma linha. */
-  const ids = adicionais.map((adicional) => adicional.id).sort().join(',');
+  const ids = adicionais
+    .map((adicional) => adicional.id)
+    .sort()
+    .join(',');
   return `${productId}|${ids}|${observacao.trim().toLowerCase()}`;
 }
 

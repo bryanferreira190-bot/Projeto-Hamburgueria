@@ -153,6 +153,26 @@ export const createManualOrderSchema = z
   );
 export type CreateManualOrderInput = z.infer<typeof createManualOrderSchema>;
 
+/**
+ * Consulta se um telefone ja tem cliente cadastrado, antes de lancar o
+ * pedido do balcao.
+ *
+ * O cadastro e por telefone (ver customer.upsert em OrdersService): dois
+ * nomes diferentes com o MESMO telefone viram o MESMO cliente, e o nome
+ * mais recente sobrescreve o anterior silenciosamente. Sem avisar quem
+ * esta atendendo, um numero digitado errado (ou reaproveitado por habito)
+ * mistura o historico de duas pessoas diferentes sem ninguem perceber.
+ */
+export const customerLookupQuerySchema = z.object({
+  phone: phoneSchema,
+});
+export type CustomerLookupQuery = z.infer<typeof customerLookupQuerySchema>;
+
+/** null = telefone ainda sem cadastro. */
+export interface CustomerLookup {
+  name: string | null;
+}
+
 export const updateOrderStatusSchema = z.object({
   status: z.nativeEnum(OrderStatus),
   reason: z.string().trim().max(200).optional(),

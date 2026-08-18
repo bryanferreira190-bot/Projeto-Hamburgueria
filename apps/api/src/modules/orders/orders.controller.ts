@@ -16,12 +16,14 @@ import {
   cancelOrderSchema,
   createManualOrderSchema,
   createOrderSchema,
+  customerLookupQuerySchema,
   listOrdersFilterSchema,
   trackOrderQuerySchema,
   updateOrderStatusSchema,
   type CancelOrderInput,
   type CreateManualOrderInput,
   type CreateOrderInput,
+  type CustomerLookupQuery,
   type ListOrdersFilter,
   type TrackOrderQuery,
   type UpdateOrderStatusInput,
@@ -97,6 +99,21 @@ export class OrdersController {
     @CurrentAdmin('sub') adminId: string,
   ) {
     return this.orders.createManual(body, adminId);
+  }
+
+  /**
+   * Nome ja associado a este telefone, se houver.
+   *
+   * O balcao consulta isto ANTES de lancar o pedido — cadastro e por
+   * telefone, e digitar um numero que ja pertence a outra pessoa
+   * renomeia o cliente errado sem avisar ninguem. Ver createManual.
+   */
+  @RequireRole(AdminRole.KITCHEN)
+  @Get('customer-lookup')
+  customerLookup(
+    @Query(new ZodValidationPipe(customerLookupQuerySchema)) query: CustomerLookupQuery,
+  ) {
+    return this.orders.buscarClientePorTelefone(query.phone);
   }
 
   @RequireRole(AdminRole.KITCHEN)

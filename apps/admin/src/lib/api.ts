@@ -305,6 +305,12 @@ export const api = {
   createManualOrder: (payload: ManualOrderPayload) =>
     request<OrderRow>('/orders/manual', { method: 'POST', body: payload }),
 
+  /** Nome ja associado a este telefone, se houver — ver BalcaoPage. */
+  customerLookup: (phone: string) =>
+    request<{ name: string | null } | null>(
+      `/orders/customer-lookup?phone=${encodeURIComponent(phone)}`,
+    ),
+
   updateOrderStatus: (id: string, status: string, reason?: string) =>
     request<OrderRow>(`/orders/${id}/status`, {
       method: 'PATCH',

@@ -5,6 +5,39 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-18 — Balcão avisa antes de renomear cliente com telefone repetido
+
+Bug real relatado e reproduzido com dado de producao: um pedido de
+balcão lançado com nome "Comanda" e telefone `11970706978` sobrescreveu
+silenciosamente o nome de um cliente já cadastrado com esse mesmo
+telefone (era "TESTE"). Não é bug de código — é o comportamento
+INTENCIONAL de `customer.upsert` (mesmo telefone = mesmo cliente,
+update do nome) funcionando exatamente como projetado, só que sem
+avisar quem está atendendo. No balcão, digitar o número errado por
+pressa ou reaproveitar um número por hábito é fácil, e o preço de
+errar é misturar o histórico (e o cashback!) de duas pessoas diferentes
+sem ninguém perceber.
+
+Criada `GET /orders/customer-lookup?phone=` (KITCHEN+, mesmo papel de
+`createManual`) devolvendo o nome já associado a um telefone, ou `null`
+se não há cadastro. `BalcaoPage` consulta isso com debounce de 300ms
+assim que o telefone chega a 11 dígitos e:
+- nome igual ou campo de nome vazio → só confirma discretamente que é
+  cliente conhecido;
+- nome DIFERENTE do cadastrado → alerta amarelo explicando o que vai
+  acontecer, e **trava o botão "Lançar pedido"** até marcar um checkbox
+  "É a mesma pessoa, pode renomear". Trocar telefone ou nome de novo
+  reabre a confirmação — não fica valendo para um número diferente
+  digitado em seguida. A checagem também é repetida no `enviar()`
+  (defesa a mais, caso o estado do botão saia de sincronia).
+
+Verificado com dado real de produção: telefone existente devolve o
+nome atual (`{"name":"Comanda"}`), telefone novo devolve `null`,
+telefone mal formatado devolve 422 — mesmo padrão das outras rotas
+validadas por Zod.
+
+---
+
 ## 2026-08-18 — Barra superior do painel quebrava no celular
 
 Consequência dos últimos ajustes: mover o botão de som e o contador de

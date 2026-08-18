@@ -407,3 +407,58 @@ describe('OrdersService.list', () => {
     expect(resultado.orders[0]).toMatchObject({ timeline: [], payment: null });
   });
 });
+
+describe('OrdersService.buscarClientePorTelefone', () => {
+  /**
+   * O balcao consulta isto ANTES de lancar o pedido. Cadastro e por
+   * telefone (mesma chave que customer.upsert usa em create/createManual)
+   * — sem avisar quem esta atendendo, digitar um numero que ja pertence
+   * a outra pessoa sobrescreve o nome dela em silencio. Foi exatamente
+   * isso que aconteceu em producao (ver DECISOES.md).
+   */
+  function makeLookupService(store: { id: string } | null, customer: { name: string | null } | null) {
+    const prisma = {
+      store: { findFirst: vi.fn().mockResolvedValue(store) },
+      customer: { findUnique: vi.fn().mockResolvedValue(customer) },
+    } as unknown as PrismaService;
+
+    const service = new OrdersService(
+      prisma,
+      {} as OrderPricingService,
+      {} as StoreService,
+      {} as DeliveryService,
+      {} as PaymentsService,
+      {} as CashbackService,
+    );
+
+    return { service, prisma };
+  }
+
+  it('telefone sem cadastro devolve null', async () => {
+    const { service } = makeLookupService(STORE, null);
+
+    expect(await service.buscarClientePorTelefone('11999998888')).toBeNull();
+  });
+
+  it('telefone ja cadastrado devolve o nome atual', async () => {
+    const { service } = makeLookupService(STORE, { name: 'Vanessa' });
+
+    expect(await service.buscarClientePorTelefone('11999998888')).toEqual({ name: 'Vanessa' });
+  });
+
+  it('cliente cadastrado so com telefone (sem nome) devolve name: null, nao "sem cadastro"', async () => {
+    /* Distincao importa: null no NIVEL DE FORA (a funcao inteira) e
+       "ninguem tem esse numero"; { name: null } e "alguem tem, mas nao
+       deixou nome" — confundir os dois faria o balcao achar que o
+       numero esta livre quando na verdade ja e de alguem. */
+    const { service } = makeLookupService(STORE, { name: null });
+
+    expect(await service.buscarClientePorTelefone('11999998888')).toEqual({ name: null });
+  });
+
+  it('sem loja configurada, nao explode — devolve null', async () => {
+    const { service } = makeLookupService(null, null);
+
+    expect(await service.buscarClientePorTelefone('11999998888')).toBeNull();
+  });
+});

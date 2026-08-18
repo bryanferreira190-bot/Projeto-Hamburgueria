@@ -17,6 +17,7 @@ import {
   isTerminalStatus,
   type CreateManualOrderInput,
   type CreateOrderInput,
+  type CustomerLookup,
   type ListOrdersFilter,
 } from '@adventure/shared';
 import { Prisma, type Order } from '@prisma/client';
@@ -307,6 +308,28 @@ export class OrdersService {
   }
 
   /**
+   * Cliente ja cadastrado com este telefone, se houver.
+   *
+   * Usado pelo balcao ANTES de lancar o pedido: cadastro e por telefone
+   * (ver customer.upsert em createManual, logo abaixo), entao digitar um
+   * numero que ja pertence a outra pessoa renomeia o cliente errado sem
+   * avisar ninguem — foi exatamente o que aconteceu na pratica. Mostrar
+   * o nome já associado a este telefone deixa quem esta atendendo
+   * perceber a tempo, antes de confirmar.
+   */
+  async buscarClientePorTelefone(phone: string): Promise<CustomerLookup | null> {
+    const store = await this.prisma.store.findFirst({ select: { id: true } });
+    if (!store) return null;
+
+    const customer = await this.prisma.customer.findUnique({
+      where: { storeId_phone: { storeId: store.id, phone } },
+      select: { name: true },
+    });
+
+    return customer ? { name: customer.name } : null;
+  }
+
+  /**
    * PEDIDO LANCADO NO BALCAO PELA COZINHA
    *
    * Caminho proprio, e nao um `create()` com campos opcionais, porque as
@@ -337,10 +360,7 @@ export class OrdersService {
         deliveryFeeCents: 0,
       });
 
-      if (
-        input.changeForCents !== undefined &&
-        input.changeForCents < priced.totalCents
-      ) {
+      if (input.changeForCents !== undefined && input.changeForCents < priced.totalCents) {
         throw new BadRequestException(
           `O valor recebido (${formatBRL(input.changeForCents)}) e menor que o total (${formatBRL(priced.totalCents)}).`,
         );
@@ -825,7 +845,9 @@ type OrderWithRelations = Prisma.OrderGetPayload<{
  * "Bacon" duas vezes seguidas; agrupar aqui evita repetir essa mesma
  * logica no painel e na tela de acompanhamento.
  */
-function agruparAdicionais(options: { optionId: string; optionName: string; priceCents: number }[]) {
+function agruparAdicionais(
+  options: { optionId: string; optionName: string; priceCents: number }[],
+) {
   const porOpcao = new Map<string, { name: string; priceCents: number; quantity: number }>();
 
   for (const option of options) {
@@ -862,9 +884,7 @@ function toOrderDto(order: OrderWithRelations) {
      * Quando existe, so chega aqui quem ja provou saber o telefone do
      * pedido — ver findByNumber/cancelByCustomer.
      */
-    customer: order.customer
-      ? { name: order.customer.name, phone: order.customer.phone }
-      : null,
+    customer: order.customer ? { name: order.customer.name, phone: order.customer.phone } : null,
 
     /* Nome dito no balcao por quem nao deixou telefone. Fica fora de
        `customer` de proposito: nao ha cliente cadastrado, e fingir que ha
