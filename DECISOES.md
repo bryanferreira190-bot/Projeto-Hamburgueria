@@ -5,6 +5,27 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-19 — Balcão: observação por item em Porções e Bebidas
+
+Pedido do dono: bebida e porção não têm grupo de adicionais (nenhum
+produto dessas duas categorias tem — conferido no banco), então tocar
+no item lançava direto na comanda, sem chance de anotar "sem gelo",
+"gelada" ou "sem sal". A única observação disponível era a do pedido
+inteiro, misturando tudo.
+
+`aoClicarProduto` agora decide em três caminhos: produto com adicional
+sempre abre `EscolherAdicionais` (que já tinha campo de observação);
+produto de `porcoes`/`bebidas` sem adicional abre um confirm leve novo
+(`ConfirmarComObservacao`) com um campo de texto — Enter confirma,
+igual ao resto do balcão, onde cada toque a menos conta; qualquer outro
+produto sem adicional continua lançando direto, sem tela no meio.
+
+Nenhuma mudança de backend: o campo `notes` por item já existia no
+schema (usado até agora só pelo caminho de adicionais) — só faltava
+outro caminho na tela chegando até ele.
+
+---
+
 ## 2026-08-19 — "Limpar pedidos em aberto" virou limpeza SÓ VISUAL
 
 Correção direta do dono sobre a decisão de ontem: o botão não deveria

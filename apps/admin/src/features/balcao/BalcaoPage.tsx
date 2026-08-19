@@ -25,6 +25,15 @@ const PAGAMENTOS: { value: PaymentMethod; rotulo: string; icone: string }[] = [
   { value: 'PIX', rotulo: 'PIX', icone: '⚡' },
 ];
 
+/**
+ * Categorias cujos itens sao pedidos "na hora" (bebida, porcao) e sem
+ * grupo de adicionais para configurar — a unica forma de anotar algo
+ * ("sem gelo", "sem sal") era o campo de observacao do pedido inteiro,
+ * misturado com qualquer outra coisa. Aqui cada item pode levar a
+ * propria observacao.
+ */
+const CATEGORIAS_COM_OBSERVACAO = new Set(['porcoes', 'bebidas']);
+
 /** Item ja montado, esperando ser lancado. */
 export interface ItemDoBalcao {
   /** Chave local da linha — o mesmo produto pode entrar duas vezes com
@@ -43,6 +52,7 @@ export function BalcaoPage() {
   const [busca, setBusca] = useState('');
   const [categoriaAtiva, setCategoriaAtiva] = useState<string | null>(null);
   const [produtoEscolhendo, setProdutoEscolhendo] = useState<Product | null>(null);
+  const [produtoConfirmando, setProdutoConfirmando] = useState<Product | null>(null);
 
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -157,11 +167,25 @@ export function BalcaoPage() {
     });
   }
 
-  function aoClicarProduto(produto: Product) {
-    /* Produto sem adicional nenhum nao precisa de tela intermediaria: no
-       balcao, cada toque a menos conta. */
-    if (produto.optionGroups.length === 0) adicionar(produto, [], '');
-    else setProdutoEscolhendo(produto);
+  function aoClicarProduto(produto: Product, categoriaSlug: string) {
+    /* Tem adicional para escolher: sempre passa pela tela deles (que ja
+       tem campo de observacao proprio). */
+    if (produto.optionGroups.length > 0) {
+      setProdutoEscolhendo(produto);
+      return;
+    }
+
+    /* Bebida e porcao nao tem adicional, mas ainda merecem uma
+       observacao propria ("sem gelo", "sem sal") — confirma com um
+       campo de texto em vez de lancar direto. */
+    if (CATEGORIAS_COM_OBSERVACAO.has(categoriaSlug)) {
+      setProdutoConfirmando(produto);
+      return;
+    }
+
+    /* Qualquer outro produto sem adicional nao precisa de tela
+       intermediaria: no balcao, cada toque a menos conta. */
+    adicionar(produto, [], '');
   }
 
   function mudarQuantidade(chave: string, delta: number) {
@@ -293,7 +317,7 @@ export function BalcaoPage() {
                       key={produto.id}
                       type="button"
                       disabled={!produto.isAvailable}
-                      onClick={() => aoClicarProduto(produto)}
+                      onClick={() => aoClicarProduto(produto, categoria.slug)}
                       className={cx(
                         'rounded-lg border border-borda bg-preto-2 p-3 text-left transition-colors',
                         'hover:border-amarelo disabled:cursor-not-allowed disabled:opacity-40',
@@ -505,6 +529,81 @@ export function BalcaoPage() {
           }}
         />
       )}
+
+      {produtoConfirmando && (
+        <ConfirmarComObservacao
+          produto={produtoConfirmando}
+          onFechar={() => setProdutoConfirmando(null)}
+          onConfirmar={(obs) => {
+            adicionar(produtoConfirmando, [], obs);
+            setProdutoConfirmando(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Confirmacao para item de bebida/porcao — sem adicional para escolher,
+ * so um campo de texto para observacao ("sem gelo", "sem sal") antes de
+ * lancar na comanda. Mesmo padrao visual de EscolherAdicionais.
+ */
+function ConfirmarComObservacao({
+  produto,
+  onFechar,
+  onConfirmar,
+}: {
+  produto: Product;
+  onFechar: () => void;
+  onConfirmar: (observacao: string) => void;
+}) {
+  const [observacao, setObservacao] = useState('');
+
+  useEffect(() => {
+    function aoTeclar(evento: KeyboardEvent) {
+      if (evento.key === 'Escape') onFechar();
+    }
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [onFechar]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-5"
+      onClick={onFechar}
+    >
+      <div
+        role="dialog"
+        aria-label={`Adicionar ${produto.name}`}
+        onClick={(evento) => evento.stopPropagation()}
+        className="w-full max-w-md rounded-t-2xl border border-borda bg-preto-2 p-5 sm:rounded-2xl"
+      >
+        <header className="mb-4">
+          <h2 className="titulo-display text-lg">{produto.name}</h2>
+          <p className="text-xs text-cinza-2">{produto.priceFormatted}</p>
+        </header>
+
+        <label className="mb-1.5 block text-xs font-bold text-cinza-2">Observação (opcional)</label>
+        <Input
+          autoFocus
+          value={observacao}
+          onChange={(evento) => setObservacao(evento.target.value)}
+          onKeyDown={(evento) => {
+            if (evento.key === 'Enter') onConfirmar(observacao.trim());
+          }}
+          placeholder="Ex.: sem gelo, gelada, sem sal…"
+        />
+
+        <div className="mt-5 flex gap-2">
+          <Button variant="contorno" full onClick={onFechar}>
+            Cancelar
+          </Button>
+          <Button variant="amarelo" full onClick={() => onConfirmar(observacao.trim())}>
+            Adicionar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
