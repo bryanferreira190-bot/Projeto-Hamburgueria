@@ -288,11 +288,20 @@ export const api = {
     return request<DashboardData>(`/admin/reports/dashboard${query ? `?${query}` : ''}`);
   },
 
-  orders: (params: { status?: string[]; limit?: number; search?: string }) => {
+  orders: (params: {
+    status?: string[];
+    limit?: number;
+    search?: string;
+    /** ISO — filtro de data do Histórico. */
+    from?: string;
+    to?: string;
+  }) => {
     const query = new URLSearchParams();
     params.status?.forEach((status) => query.append('status', status));
     if (params.limit) query.set('limit', String(params.limit));
     if (params.search) query.set('search', params.search);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
     return request<{ orders: OrderRow[]; nextCursor: string | null }>(`/orders?${query}`);
   },
 

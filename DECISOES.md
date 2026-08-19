@@ -5,6 +5,37 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-19 — Filtro de data no Histórico recente
+
+Antes, o Histórico era so um recorte (client-side) da mesma lista dos
+últimos 100 pedidos que o Kanban usa para o trabalho em andamento. Um
+filtro de data sobre essa lista seria enganoso: pedido antigo que já
+saiu da janela dos 100 nunca apareceria, mesmo estando exatamente no
+período pedido — e em dia de movimento, nem precisa ser tão antigo
+assim para sair da janela.
+
+`Historico` passou a ter consulta própria (`useQuery` com chave
+`['orders', 'historico', de, ate]`), com o filtro de status
+(`DELIVERED`/`COMPLETED`/`CANCELED`) e o período indo direto no
+servidor — a API já suportava `status`/`from`/`to` em `GET /orders`
+desde a listagem original, só faltava expor `from`/`to` no cliente e
+uma UI para isso. **Nenhuma mudança de backend foi necessária.**
+
+`inicioDoDia`/`fimDoDia` convertem a data do `<input type="date">`
+(`AAAA-MM-DD`, sem fuso) para o início/fim daquele dia no fuso do
+navegador, antes de mandar em ISO — verificado contra produção: os
+limites calculados (`...T03:00:00.000Z` a `...T02:59:59.999Z` para um
+dia em UTC-3) bateram exatamente com os pedidos esperados daquele dia,
+nem um a mais nem a menos.
+
+Como o filtro ainda usa `limit: 100` (teto da API), um período muito
+largo pode ter mais pedido resolvido do que isso — a tela avisa
+("mostrando os 100 mais recentes deste período") em vez de esconder o
+resto em silêncio, usando o mesmo `nextCursor` que a paginação por
+cursor da API já devolve.
+
+---
+
 ## 2026-08-19 — Balcão: observação por item em Porções e Bebidas
 
 Pedido do dono: bebida e porção não têm grupo de adicionais (nenhum

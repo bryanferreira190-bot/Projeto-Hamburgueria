@@ -11,7 +11,7 @@ import {
   type PaymentMethod,
 } from '@adventure/shared';
 import { ApiError, api, nomeDoCliente, type OrderRow } from '../../lib/api';
-import { Button, Card, Input, Spinner, Vazio } from '../../components/ui';
+import { Button, Card, Field, Input, Spinner, Vazio } from '../../components/ui';
 import { DadosDoCliente } from '../../components/DadosDoCliente';
 import { cx } from '../../lib/cx';
 import { COLUNAS, usePedidosGlobais } from './usePedidosGlobais';
@@ -269,11 +269,7 @@ export function OrdersPage() {
       </div>
 
       <Card title="Histórico recente">
-        <Historico
-          pedidos={pedidos.filter(
-            (pedido) => !COLUNAS.some((coluna) => coluna.status === pedido.status),
-          )}
-        />
+        <Historico />
       </Card>
 
       {confirmandoLimpeza && (
@@ -466,86 +462,179 @@ function CartaoPedido({
 /** Linhas por pagina do historico. */
 const LINHAS_POR_PAGINA = 15;
 
-function Historico({ pedidos }: { pedidos: OrderRow[] }) {
-  const [pagina, setPagina] = useState(1);
+/** Historico so mostra pedido ja resolvido — nunca o que esta em andamento. */
+const STATUS_HISTORICO = [OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.CANCELED];
 
+/** Inicio do dia (00:00:00) no fuso do navegador, em ISO para a API. */
+function inicioDoDia(data: string): string {
+  return new Date(`${data}T00:00:00`).toISOString();
+}
+
+/** Fim do dia (23:59:59.999) no fuso do navegador — "até" e inclusivo. */
+function fimDoDia(data: string): string {
+  return new Date(`${data}T23:59:59.999`).toISOString();
+}
+
+function Historico() {
+  const [pagina, setPagina] = useState(1);
+  const [de, setDe] = useState('');
+  const [ate, setAte] = useState('');
+
+  /**
+   * Consulta PROPRIA, independente do Kanban: o filtro de data precisa
+   * alcancar pedido fora da janela dos ultimos 100 que o Kanban busca
+   * (essa janela e para o trabalho em andamento, nao para historico).
+   * Status vai direto no filtro do servidor — Historico nunca precisa
+   * de pedido em andamento, entao nao faz sentido baixa-lo so para
+   * descartar depois, como acontecia antes.
+   */
+  const { data, isLoading } = useQuery({
+    queryKey: ['orders', 'historico', de, ate],
+    queryFn: () =>
+      api.orders({
+        limit: 100,
+        status: STATUS_HISTORICO,
+        ...(de ? { from: inicioDoDia(de) } : {}),
+        ...(ate ? { to: fimDoDia(ate) } : {}),
+      }),
+  });
+
+  /* Trocar o periodo comeca sempre na pagina 1 — ficar na 4a pagina de
+     um filtro diferente so mostraria uma tabela vazia. */
+  useEffect(() => {
+    setPagina(1);
+  }, [de, ate]);
+
+  const pedidos = data?.orders ?? [];
   const totalDePaginas = Math.max(1, Math.ceil(pedidos.length / LINHAS_POR_PAGINA));
-  /* A lista muda (novo pedido finalizado, busca digitada) e a pagina
+  /* A lista muda (novo pedido finalizado, filtro novo) e a pagina
      antiga pode nao existir mais — volta para a ultima valida em vez de
      mostrar uma tabela vazia com botao "anterior" sem efeito. */
   const paginaAtual = Math.min(pagina, totalDePaginas);
   const inicio = (paginaAtual - 1) * LINHAS_POR_PAGINA;
   const daPagina = pedidos.slice(inicio, inicio + LINHAS_POR_PAGINA);
 
-  if (pedidos.length === 0) {
-    return <Vazio icon="📋" title="Nenhum pedido finalizado ainda" />;
-  }
+  const filtroAtivo = Boolean(de || ate);
 
   return (
     <div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-borda text-left text-xs text-cinza-2 uppercase">
-              <th className="pb-2 font-semibold">Nº</th>
-              <th className="pb-2 font-semibold">Cliente</th>
-              <th className="pb-2 font-semibold">Pagamento</th>
-              <th className="pb-2 font-semibold">Status</th>
-              <th className="pb-2 text-right font-semibold">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {daPagina.map((pedido) => (
-              <tr key={pedido.id} className="border-b border-borda/50">
-                <td className="py-2">
-                  <DadosDoCliente pedido={pedido}>
-                    <span className="font-bold text-amarelo">{pedido.number}</span>
-                  </DadosDoCliente>
-                </td>
-                <td className="py-2">
-                  <DadosDoCliente pedido={pedido}>
-                    <span className="text-cinza">
-                      {pedido.isManual && <span aria-hidden>🧾 </span>}
-                      {nomeDoCliente(pedido) ?? 'Sem nome'}
-                    </span>
-                  </DadosDoCliente>
-                </td>
-                <td className="py-2 text-xs whitespace-nowrap">
-                  {ehPagamentoNaEntrega(pedido.paymentMethod) ? (
-                    /* Mesma linguagem visual do cartao da cozinha: no
-                     historico o que se procura e justamente conferir se um
-                     pedido era para cobrar na entrega. */
-                    <span className="font-semibold text-amarelo">
-                      <span aria-hidden>
-                        {pedido.paymentMethod === 'CASH_ON_DELIVERY' ? '💵 ' : '🏧 '}
-                      </span>
-                      {rotuloDoPagamento(pedido.paymentMethod)}
-                    </span>
-                  ) : (
-                    <span className="text-cinza-2">{rotuloDoPagamento(pedido.paymentMethod)}</span>
-                  )}
-                </td>
-                <td className="py-2">
-                  <span
-                    className={cx(
-                      'rounded-full px-2 py-0.5 text-xs',
-                      pedido.status === OrderStatus.CANCELED
-                        ? 'bg-[#d03b3b]/15 text-[#d03b3b]'
-                        : 'bg-[#0ca30c]/15 text-[#0ca30c]',
-                    )}
-                  >
-                    {ORDER_STATUS_LABELS[pedido.status as OrderStatus] ?? pedido.status}
-                  </span>
-                </td>
-                <td className="tabular py-2 text-right">{pedido.totalFormatted}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mb-4 flex flex-wrap items-end gap-2">
+        <Field label="De">
+          <Input
+            type="date"
+            value={de}
+            max={ate || undefined}
+            onChange={(evento) => setDe(evento.target.value)}
+          />
+        </Field>
+        <Field label="Até">
+          <Input
+            type="date"
+            value={ate}
+            min={de || undefined}
+            onChange={(evento) => setAte(evento.target.value)}
+          />
+        </Field>
+        {filtroAtivo && (
+          <Button
+            size="sm"
+            variant="contorno"
+            onClick={() => {
+              setDe('');
+              setAte('');
+            }}
+          >
+            Limpar período
+          </Button>
+        )}
       </div>
 
-      {totalDePaginas > 1 && (
-        <Paginacao total={totalDePaginas} atual={paginaAtual} onMudar={setPagina} />
+      {isLoading ? (
+        <Spinner label="Carregando histórico" />
+      ) : pedidos.length === 0 ? (
+        <Vazio
+          icon="📋"
+          title={filtroAtivo ? 'Nenhum pedido nesse período' : 'Nenhum pedido finalizado ainda'}
+        />
+      ) : (
+        <div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-borda text-left text-xs text-cinza-2 uppercase">
+                  <th className="pb-2 font-semibold">Nº</th>
+                  <th className="pb-2 font-semibold">Cliente</th>
+                  <th className="pb-2 font-semibold">Pagamento</th>
+                  <th className="pb-2 font-semibold">Status</th>
+                  <th className="pb-2 text-right font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {daPagina.map((pedido) => (
+                  <tr key={pedido.id} className="border-b border-borda/50">
+                    <td className="py-2">
+                      <DadosDoCliente pedido={pedido}>
+                        <span className="font-bold text-amarelo">{pedido.number}</span>
+                      </DadosDoCliente>
+                    </td>
+                    <td className="py-2">
+                      <DadosDoCliente pedido={pedido}>
+                        <span className="text-cinza">
+                          {pedido.isManual && <span aria-hidden>🧾 </span>}
+                          {nomeDoCliente(pedido) ?? 'Sem nome'}
+                        </span>
+                      </DadosDoCliente>
+                    </td>
+                    <td className="py-2 text-xs whitespace-nowrap">
+                      {ehPagamentoNaEntrega(pedido.paymentMethod) ? (
+                        /* Mesma linguagem visual do cartao da cozinha: no
+                     historico o que se procura e justamente conferir se um
+                     pedido era para cobrar na entrega. */
+                        <span className="font-semibold text-amarelo">
+                          <span aria-hidden>
+                            {pedido.paymentMethod === 'CASH_ON_DELIVERY' ? '💵 ' : '🏧 '}
+                          </span>
+                          {rotuloDoPagamento(pedido.paymentMethod)}
+                        </span>
+                      ) : (
+                        <span className="text-cinza-2">
+                          {rotuloDoPagamento(pedido.paymentMethod)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2">
+                      <span
+                        className={cx(
+                          'rounded-full px-2 py-0.5 text-xs',
+                          pedido.status === OrderStatus.CANCELED
+                            ? 'bg-[#d03b3b]/15 text-[#d03b3b]'
+                            : 'bg-[#0ca30c]/15 text-[#0ca30c]',
+                        )}
+                      >
+                        {ORDER_STATUS_LABELS[pedido.status as OrderStatus] ?? pedido.status}
+                      </span>
+                    </td>
+                    <td className="tabular py-2 text-right">{pedido.totalFormatted}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalDePaginas > 1 && (
+            <Paginacao total={totalDePaginas} atual={paginaAtual} onMudar={setPagina} />
+          )}
+
+          {/* limit:100 e o teto da API — um periodo bem largo pode ter mais
+              pedido resolvido do que isso. Sem o aviso, os mais antigos do
+              periodo somem sem explicacao nenhuma. */}
+          {data?.nextCursor && (
+            <p className="mt-3 text-center text-xs text-cinza-2">
+              Mostrando os 100 pedidos mais recentes deste período — estreite o filtro de data para
+              ver os demais.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
