@@ -462,3 +462,84 @@ describe('OrdersService.buscarClientePorTelefone', () => {
     expect(await service.buscarClientePorTelefone('11999998888')).toBeNull();
   });
 });
+
+describe('OrdersService.cancelarTodosAbertos', () => {
+  /**
+   * O botao "Limpar pedidos em aberto" precisa do MESMO tratamento por
+   * pedido que um cancelamento avulso ja tem (estorno, cupom, cashback) —
+   * por isso a orquestracao chama updateStatus() para cada um, em vez de
+   * um updateMany direto no banco. Os testes aqui isolam so a
+   * ORQUESTRACAO (o que e consultado, quantos sucessos/falhas); o
+   * comportamento de updateStatus em si ja tem cobertura propria acima.
+   */
+  function makeService(pedidosAbertos: { id: string; number: string }[]) {
+    const prisma = {
+      order: { findMany: vi.fn().mockResolvedValue(pedidosAbertos) },
+    } as unknown as PrismaService;
+
+    const service = new OrdersService(
+      prisma,
+      {} as OrderPricingService,
+      {} as StoreService,
+      {} as DeliveryService,
+      {} as PaymentsService,
+      {} as CashbackService,
+    );
+
+    return { service, prisma };
+  }
+
+  it('consulta so pedidos fora dos status terminais', async () => {
+    const { service, prisma } = makeService([]);
+    vi.spyOn(service, 'updateStatus').mockResolvedValue({} as never);
+
+    await service.cancelarTodosAbertos('teste');
+
+    const consulta = (prisma.order.findMany as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(consulta.where.status.notIn).toEqual(
+      expect.arrayContaining([OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.CANCELED]),
+    );
+  });
+
+  it('cancela cada pedido em aberto com o motivo informado', async () => {
+    const { service } = makeService([
+      { id: 'o1', number: 'A001' },
+      { id: 'o2', number: 'A002' },
+    ]);
+    const updateStatus = vi.spyOn(service, 'updateStatus').mockResolvedValue({} as never);
+
+    const resultado = await service.cancelarTodosAbertos('Limpeza de teste');
+
+    expect(resultado).toEqual({ cancelados: 2, falharam: 0 });
+    expect(updateStatus).toHaveBeenCalledWith('o1', OrderStatus.CANCELED, {
+      reason: 'Limpeza de teste',
+    });
+    expect(updateStatus).toHaveBeenCalledWith('o2', OrderStatus.CANCELED, {
+      reason: 'Limpeza de teste',
+    });
+  });
+
+  it('um pedido que falha nao impede os demais de serem cancelados', async () => {
+    const { service } = makeService([
+      { id: 'o1', number: 'A001' },
+      { id: 'o2', number: 'A002' },
+      { id: 'o3', number: 'A003' },
+    ]);
+    vi.spyOn(service, 'updateStatus')
+      .mockResolvedValueOnce({} as never)
+      .mockRejectedValueOnce(new Error('corrida com o cliente pagando'))
+      .mockResolvedValueOnce({} as never);
+
+    const resultado = await service.cancelarTodosAbertos('teste');
+
+    expect(resultado).toEqual({ cancelados: 2, falharam: 1 });
+  });
+
+  it('nenhum pedido aberto: nao chama updateStatus e devolve zero/zero', async () => {
+    const { service } = makeService([]);
+    const updateStatus = vi.spyOn(service, 'updateStatus');
+
+    expect(await service.cancelarTodosAbertos('teste')).toEqual({ cancelados: 0, falharam: 0 });
+    expect(updateStatus).not.toHaveBeenCalled();
+  });
+});

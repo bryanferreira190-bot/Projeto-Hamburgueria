@@ -41,6 +41,10 @@ export function OrdersPage() {
      empurrar as outras para fora da tela — cada coluna comeca fechada
      e so mostra tudo se alguem pedir. */
   const [colunasExpandidas, setColunasExpandidas] = useState<Set<OrderStatus>>(new Set());
+  /* So abre o modal de confirmacao — o cancelamento em si so acontece
+     depois de clicar de novo LA DENTRO. Cancela pedido de verdade (com
+     estorno se pago), entao um clique so nao pode disparar isso. */
+  const [confirmandoLimpeza, setConfirmandoLimpeza] = useState(false);
 
   /**
    * As setas logo abaixo do titulo controlam o MESMO scroll horizontal
@@ -100,6 +104,25 @@ export function OrdersPage() {
     },
   });
 
+  const limparAbertos = useMutation({
+    mutationFn: api.cancelOpenOrders,
+    onSuccess: (resultado) => {
+      setConfirmandoLimpeza(false);
+      setErro(
+        resultado.falharam > 0
+          ? `${resultado.cancelados} pedido(s) cancelado(s), ${resultado.falharam} falharam — tente de novo para esses.`
+          : null,
+      );
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['cashback'] });
+    },
+    onError: (error) => {
+      setConfirmandoLimpeza(false);
+      setErro(error instanceof ApiError ? error.detail : 'Não foi possível limpar os pedidos.');
+    },
+  });
+
   if (carregando) return <Spinner label="Carregando pedidos" />;
 
   const emAndamento = pedidos.filter((pedido) =>
@@ -119,6 +142,16 @@ export function OrdersPage() {
         </h1>
 
         <div className="flex flex-1 items-center justify-end gap-2">
+          {emAndamento.length > 0 && (
+            <Button
+              size="sm"
+              variant="contorno"
+              className="border-vermelho/40 text-vermelho-2 hover:border-vermelho hover:text-vermelho"
+              onClick={() => setConfirmandoLimpeza(true)}
+            >
+              Limpar pedidos em aberto
+            </Button>
+          )}
           <Input
             value={busca}
             onChange={(event) => setBusca(event.target.value)}
@@ -247,6 +280,68 @@ export function OrdersPage() {
           )}
         />
       </Card>
+
+      {confirmandoLimpeza && (
+        <ConfirmarLimpeza
+          total={emAndamento.length}
+          carregando={limparAbertos.isPending}
+          onCancelar={() => setConfirmandoLimpeza(false)}
+          onConfirmar={() => limparAbertos.mutate()}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Confirmacao do "Limpar pedidos em aberto".
+ *
+ * Cancela pedido de verdade — com estorno se ja tiver sido pago,
+ * devolucao de cupom e anulacao de cashback ja creditado. Um clique so
+ * no botao do cabecalho nao pode disparar isso: precisa passar por esta
+ * tela, ver quantos pedidos serao afetados, e confirmar de novo aqui.
+ */
+function ConfirmarLimpeza({
+  total,
+  carregando,
+  onCancelar,
+  onConfirmar,
+}: {
+  total: number;
+  carregando: boolean;
+  onCancelar: () => void;
+  onConfirmar: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-5"
+      onClick={onCancelar}
+    >
+      <div
+        role="alertdialog"
+        aria-label="Confirmar limpeza de pedidos em aberto"
+        onClick={(evento) => evento.stopPropagation()}
+        className="w-full max-w-sm rounded-2xl border border-vermelho/40 bg-preto-2 p-5"
+      >
+        <h2 className="titulo-display mb-2 text-lg text-vermelho-2">
+          Limpar {total} pedido{total === 1 ? '' : 's'} em aberto?
+        </h2>
+        <p className="mb-1 text-sm text-cinza">
+          Todos os pedidos que ainda não foram entregues, retirados ou cancelados serão cancelados
+          agora — inclusive os que estão em preparo ou a caminho.
+        </p>
+        <p className="mb-4 text-sm font-semibold text-amarelo">
+          Pagamento já recebido é estornado automaticamente. Essa ação não pode ser desfeita.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="contorno" full onClick={onCancelar} disabled={carregando}>
+            Voltar
+          </Button>
+          <Button variant="primario" full onClick={onConfirmar} loading={carregando}>
+            Cancelar {total} pedido{total === 1 ? '' : 's'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,36 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-19 — Botão "Limpar pedidos em aberto" no painel
+
+Pedido direto do dono, para não precisar mais me pedir para rodar
+script toda vez que sobrar pedido de teste travado no Kanban (como
+aconteceu nos dois dias anteriores). Duas decisões confirmadas com ele
+antes de implementar: cancela TODOS os pedidos em aberto de uma vez,
+sem filtro por idade; e liberado para qualquer papel KITCHEN+, não só
+o dono.
+
+Como é destrutivo de verdade (cancela pedido de verdade, com estorno
+se já tiver sido pago), o botão só ABRE um modal de confirmação — o
+cancelamento em si só roda depois de um segundo clique lá dentro, que
+mostra quantos pedidos serão afetados e avisa que pagamento recebido é
+estornado automaticamente.
+
+`OrdersService.cancelarTodosAbertos()` reaproveita `updateStatus()`
+pedido por pedido, em vez de um `updateMany` direto no banco — precisa
+do mesmo tratamento de sempre por pedido (estorno, devolução de cupom,
+anulação de cashback já creditado via `anularCreditoDoPedido`). Um
+pedido que falhar (corrida com o cliente pagando bem nessa hora, por
+exemplo) não impede os demais; o resultado devolve quantos foram e
+quantos não foram, e o admin vê os dois números.
+
+Testado ao vivo em produção: 9 pedidos de teste do cliente "Comanda"
+(sobra da testagem do balcão) cancelados de uma vez, 0 falhas, 0
+pedidos em aberto restantes — nenhum pedido de outro dia (número
+repete diariamente) foi tocado.
+
+---
+
 ## 2026-08-18 — Balcão avisa antes de renomear cliente com telefone repetido
 
 Bug real relatado e reproduzido com dado de producao: um pedido de
