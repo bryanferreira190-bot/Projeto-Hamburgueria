@@ -5,6 +5,34 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-19 — "Limpar pedidos em aberto" virou limpeza SÓ VISUAL
+
+Correção direta do dono sobre a decisão de ontem: o botão não deveria
+cancelar pedido de verdade (nem estornar pagamento) — só tirar da
+frente os pedidos que estão poluindo o Kanban. Reduz o escopo da
+decisão anterior neste mesmo arquivo.
+
+Removido por completo o caminho antigo: rota `POST /orders/cancel-open`,
+`OrdersService.cancelarTodosAbertos()`, o schema e os testes — não faz
+sentido deixar parado um endpoint que cancela e estorna pedido em
+massa se ninguém vai chamar ele.
+
+No lugar, `pedidosOcultos.ts` guarda um `Set` de ids num `localStorage`
+deste navegador (chave `pedidos-ocultos-do-kanban`). `usePedidosGlobais`
+filtra esses ids da lista ENQUANTO o pedido continuar não-terminal — se
+algum dia ele for concluído/cancelado por outro caminho, volta a
+aparecer normalmente no Histórico, porque nada foi de fato apagado ou
+alterado no banco. Uma poda automática (`podarOcultos`) tira da lista
+quem já não está mais em aberto, para o `localStorage` não crescer para
+sempre.
+
+Mantido por pedido explícito: a confirmação antes de executar (mesmo
+sendo só visual, "sumir com tudo de um clique" merece um segundo
+passo) e o mesmo visual do botão/modal — só o texto mudou, para não
+mencionar mais cancelamento nem estorno, que deixaram de acontecer.
+
+---
+
 ## 2026-08-19 — Botão "Limpar pedidos em aberto" no painel
 
 Pedido direto do dono, para não precisar mais me pedir para rodar

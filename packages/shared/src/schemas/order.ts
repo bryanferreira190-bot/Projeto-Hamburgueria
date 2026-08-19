@@ -173,20 +173,6 @@ export interface CustomerLookup {
   name: string | null;
 }
 
-/**
- * Limpeza em massa dos pedidos em aberto — botao do painel para tirar
- * pedido de teste/travado do Kanban sem cancelar um por um.
- */
-export const cancelOpenOrdersSchema = z.object({
-  reason: z.string().trim().min(3).max(200).optional(),
-});
-export type CancelOpenOrdersInput = z.infer<typeof cancelOpenOrdersSchema>;
-
-export interface CancelOpenOrdersResult {
-  cancelados: number;
-  falharam: number;
-}
-
 export const updateOrderStatusSchema = z.object({
   status: z.nativeEnum(OrderStatus),
   reason: z.string().trim().max(200).optional(),

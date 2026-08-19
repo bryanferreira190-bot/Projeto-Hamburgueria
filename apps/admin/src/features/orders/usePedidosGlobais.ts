@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { AdminRole, OrderStatus, hasRoleLevel } from '@adventure/shared';
 import { api, type OrderRow } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { obterOcultos, podarOcultos } from './pedidosOcultos';
 
 /** Referencia estavel: um array novo a cada render dispararia efeitos a toa. */
 const SEM_PEDIDOS: OrderRow[] = [];
@@ -50,10 +52,37 @@ export function usePedidosGlobais() {
     enabled: podeVerPedidos,
   });
 
-  const pedidos = query.data?.orders ?? SEM_PEDIDOS;
+  const pedidosBrutos = query.data?.orders ?? SEM_PEDIDOS;
+
+  /**
+   * "Limpar pedidos em aberto" so esconde da tela — nao muda status, nao
+   * mexe em pagamento nem cashback (ver pedidosOcultos.ts). Por isso o
+   * filtro so vale ENQUANTO o pedido continuar nao-terminal: se algum
+   * dia ele for concluido/cancelado por outro caminho, volta a aparecer
+   * normalmente no Historico, como qualquer outro pedido resolvido.
+   */
+  const ocultos = obterOcultos();
+  const pedidos = pedidosBrutos.filter((pedido) => {
+    const emAberto = COLUNAS.some((coluna) => coluna.status === pedido.status);
+    return !(emAberto && ocultos.has(pedido.id));
+  });
+
   const emAndamento = pedidos.filter((pedido) =>
     COLUNAS.some((coluna) => coluna.status === pedido.status),
   );
+
+  /* Poda quem ja nao esta mais em aberto (foi concluido, ou saiu da
+     janela dos ultimos 100 pedidos) — sem isto, a lista de ocultos so
+     cresceria para sempre. */
+  useEffect(() => {
+    if (!query.data) return;
+    const aindaEmAberto = new Set(
+      pedidosBrutos
+        .filter((pedido) => COLUNAS.some((coluna) => coluna.status === pedido.status))
+        .map((pedido) => pedido.id),
+    );
+    podarOcultos(aindaEmAberto);
+  }, [query.data]);
 
   return { ...query, pedidos, emAndamento };
 }

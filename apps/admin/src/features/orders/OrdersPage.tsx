@@ -15,6 +15,7 @@ import { Button, Card, Input, Spinner, Vazio } from '../../components/ui';
 import { DadosDoCliente } from '../../components/DadosDoCliente';
 import { cx } from '../../lib/cx';
 import { COLUNAS, usePedidosGlobais } from './usePedidosGlobais';
+import { ocultarPedidos } from './pedidosOcultos';
 
 /* Referencia estavel: um array novo a cada render dispararia efeitos a
    toa em quem depende deste resultado. */
@@ -104,30 +105,24 @@ export function OrdersPage() {
     },
   });
 
-  const limparAbertos = useMutation({
-    mutationFn: api.cancelOpenOrders,
-    onSuccess: (resultado) => {
-      setConfirmandoLimpeza(false);
-      setErro(
-        resultado.falharam > 0
-          ? `${resultado.cancelados} pedido(s) cancelado(s), ${resultado.falharam} falharam — tente de novo para esses.`
-          : null,
-      );
-      void queryClient.invalidateQueries({ queryKey: ['orders'] });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      void queryClient.invalidateQueries({ queryKey: ['cashback'] });
-    },
-    onError: (error) => {
-      setConfirmandoLimpeza(false);
-      setErro(error instanceof ApiError ? error.detail : 'Não foi possível limpar os pedidos.');
-    },
-  });
-
   if (carregando) return <Spinner label="Carregando pedidos" />;
 
   const emAndamento = pedidos.filter((pedido) =>
     COLUNAS.some((coluna) => coluna.status === pedido.status),
   );
+
+  /**
+   * So esconde da tela — nao muda status, nao estorna pagamento, nao
+   * mexe em cupom nem em cashback. O pedido continua exatamente como
+   * estava no banco; ver pedidosOcultos.ts. `invalidateQueries` aqui
+   * nao busca nada novo no servidor, so forca o Layout (contador da
+   * barra) e esta pagina a recalcular com a lista de ocultos atualizada.
+   */
+  function limparPedidosDaTela() {
+    ocultarPedidos(emAndamento.map((pedido) => pedido.id));
+    setConfirmandoLimpeza(false);
+    void queryClient.invalidateQueries({ queryKey: ['orders'] });
+  }
 
   return (
     <div className="space-y-5">
@@ -284,9 +279,8 @@ export function OrdersPage() {
       {confirmandoLimpeza && (
         <ConfirmarLimpeza
           total={emAndamento.length}
-          carregando={limparAbertos.isPending}
           onCancelar={() => setConfirmandoLimpeza(false)}
-          onConfirmar={() => limparAbertos.mutate()}
+          onConfirmar={limparPedidosDaTela}
         />
       )}
     </div>
@@ -296,19 +290,18 @@ export function OrdersPage() {
 /**
  * Confirmacao do "Limpar pedidos em aberto".
  *
- * Cancela pedido de verdade — com estorno se ja tiver sido pago,
- * devolucao de cupom e anulacao de cashback ja creditado. Um clique so
- * no botao do cabecalho nao pode disparar isso: precisa passar por esta
- * tela, ver quantos pedidos serao afetados, e confirmar de novo aqui.
+ * SO some da tela deste navegador — nao muda status do pedido, nao
+ * estorna pagamento, nao mexe em cupom nem em cashback (ver
+ * pedidosOcultos.ts). Ainda assim pede confirmacao: mesmo sendo so
+ * visual, "sumir com tudo que esta na tela" de um clique so e facil de
+ * acertar sem querer.
  */
 function ConfirmarLimpeza({
   total,
-  carregando,
   onCancelar,
   onConfirmar,
 }: {
   total: number;
-  carregando: boolean;
   onCancelar: () => void;
   onConfirmar: () => void;
 }) {
@@ -327,18 +320,19 @@ function ConfirmarLimpeza({
           Limpar {total} pedido{total === 1 ? '' : 's'} em aberto?
         </h2>
         <p className="mb-1 text-sm text-cinza">
-          Todos os pedidos que ainda não foram entregues, retirados ou cancelados serão cancelados
-          agora — inclusive os que estão em preparo ou a caminho.
+          Os pedidos que ainda não foram entregues, retirados ou cancelados somem do Kanban e da
+          contagem — inclusive os que estão em preparo ou a caminho.
         </p>
         <p className="mb-4 text-sm font-semibold text-amarelo">
-          Pagamento já recebido é estornado automaticamente. Essa ação não pode ser desfeita.
+          Isso é só visual, neste navegador: nenhum pedido é cancelado, nenhum pagamento é
+          estornado. Os pedidos continuam existindo normalmente no sistema.
         </p>
         <div className="flex gap-2">
-          <Button variant="contorno" full onClick={onCancelar} disabled={carregando}>
+          <Button variant="contorno" full onClick={onCancelar}>
             Voltar
           </Button>
-          <Button variant="primario" full onClick={onConfirmar} loading={carregando}>
-            Cancelar {total} pedido{total === 1 ? '' : 's'}
+          <Button variant="primario" full onClick={onConfirmar}>
+            Limpar {total} pedido{total === 1 ? '' : 's'}
           </Button>
         </div>
       </div>

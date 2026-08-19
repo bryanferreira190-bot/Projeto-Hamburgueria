@@ -317,13 +317,6 @@ export const api = {
       body: { status, ...(reason ? { reason } : {}) },
     }),
 
-  /** Botao "Limpar pedidos em aberto" do Kanban — ver OrdersPage. */
-  cancelOpenOrders: () =>
-    request<{ cancelados: number; falharam: number }>('/orders/cancel-open', {
-      method: 'POST',
-      body: {},
-    }),
-
   /**
    * Baixa o CSV via fetch autenticado e dispara "Salvar como" atraves de
    * um link temporario apontando pro Blob ja em memoria — nao pra URL da

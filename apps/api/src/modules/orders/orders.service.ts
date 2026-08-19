@@ -9,7 +9,6 @@ import {
   OrderStatus,
   OrderType,
   PaymentMethod,
-  TERMINAL_STATUSES,
   assertTransition,
   canCustomerCancel,
   formatBRL,
@@ -328,46 +327,6 @@ export class OrdersService {
     });
 
     return customer ? { name: customer.name } : null;
-  }
-
-  /**
-   * Cancela TODOS os pedidos em aberto de uma vez — botao do painel para
-   * limpar o Kanban sem cancelar pedido de teste um por um.
-   *
-   * Reaproveita updateStatus() para cada pedido, e nao um updateMany
-   * direto no banco: precisa do mesmo tratamento de sempre por pedido —
-   * estorno se ja tiver sido pago, devolucao de cupom, anulacao de
-   * cashback ja creditado (ver anularCreditoDoPedido). Um updateMany em
-   * massa puraria por cima de tudo isso. Um pedido que falhar (corrida
-   * com o cliente pagando ou com outro admin mexendo nele ao mesmo tempo)
-   * nao impede os demais.
-   */
-  async cancelarTodosAbertos(reason: string): Promise<{ cancelados: number; falharam: number }> {
-    const abertos = await this.prisma.order.findMany({
-      where: { status: { notIn: [...TERMINAL_STATUSES] } },
-      select: { id: true, number: true },
-    });
-
-    let cancelados = 0;
-    let falharam = 0;
-
-    for (const pedido of abertos) {
-      try {
-        await this.updateStatus(pedido.id, OrderStatus.CANCELED, { reason });
-        cancelados += 1;
-      } catch (error) {
-        falharam += 1;
-        this.logger.error(
-          `Falha ao cancelar o pedido ${pedido.number} na limpeza em massa`,
-          error as Error,
-        );
-      }
-    }
-
-    this.logger.log(
-      `Limpeza de pedidos em aberto: ${cancelados} cancelado(s), ${falharam} falha(s)`,
-    );
-    return { cancelados, falharam };
   }
 
   /**

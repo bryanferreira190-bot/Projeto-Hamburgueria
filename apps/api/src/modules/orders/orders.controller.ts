@@ -13,7 +13,6 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import {
   AdminRole,
-  cancelOpenOrdersSchema,
   cancelOrderSchema,
   createManualOrderSchema,
   createOrderSchema,
@@ -21,7 +20,6 @@ import {
   listOrdersFilterSchema,
   trackOrderQuerySchema,
   updateOrderStatusSchema,
-  type CancelOpenOrdersInput,
   type CancelOrderInput,
   type CreateManualOrderInput,
   type CreateOrderInput,
@@ -116,19 +114,6 @@ export class OrdersController {
     @Query(new ZodValidationPipe(customerLookupQuerySchema)) query: CustomerLookupQuery,
   ) {
     return this.orders.buscarClientePorTelefone(query.phone);
-  }
-
-  /**
-   * Cancela todos os pedidos em aberto de uma vez — botao "Limpar
-   * pedidos em aberto" do painel. Throttle baixo de proposito: e uma
-   * acao em massa, sem motivo para chamar isto varias vezes por minuto.
-   */
-  @RequireRole(AdminRole.KITCHEN)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @Post('cancel-open')
-  @HttpCode(HttpStatus.OK)
-  cancelOpen(@Body(new ZodValidationPipe(cancelOpenOrdersSchema)) body: CancelOpenOrdersInput) {
-    return this.orders.cancelarTodosAbertos(body.reason ?? 'Limpeza de pedidos em aberto');
   }
 
   @RequireRole(AdminRole.KITCHEN)
