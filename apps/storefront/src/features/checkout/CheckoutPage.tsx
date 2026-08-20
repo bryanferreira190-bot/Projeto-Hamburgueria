@@ -1,19 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import {
-  PAYMENT_METHOD_LABELS,
-  formatBRL,
-  isCardPayment,
-  isOnlinePayment,
-  type PaymentMethod,
-} from '@adventure/shared';
+import { PAYMENT_METHOD_LABELS, formatBRL, isCardPayment, type PaymentMethod } from '@adventure/shared';
 import { ApiError, api } from '../../lib/api';
 import { useCart } from '../../stores/cart';
 import { Button, EmptyState, Field, Input, Textarea } from '../../components/ui';
 import { cx } from '../../lib/cx';
 import { mascararCep, mascararTelefone } from '../../lib/mascara';
 import { cartaoDisponivel } from '../../lib/mercadopago';
+import { buscarEnderecoPorCep, CepError } from '../../lib/viacep';
 import { salvarTelefoneDoPedido } from '../order/telefoneDoPedido';
 import { CamposDoCartao, type DadosDoCartao } from './CamposDoCartao';
 
@@ -33,7 +28,6 @@ export function CheckoutPage() {
   const [type, setType] = useState<OrderType>('DELIVERY');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [street, setStreet] = useState('');
   const [number, setNumber] = useState('');
@@ -67,6 +61,38 @@ export function CheckoutPage() {
     enabled: type === 'DELIVERY' && district.trim().length >= 3,
     staleTime: 60_000,
   });
+
+  /**
+   * AUTOPREENCHIMENTO POR CEP
+   *
+   * So dispara com 8 digitos completos. Os campos continuam editaveis
+   * depois de preenchidos — se o CEP nao trouxer rua (comum em CEP
+   * rural) ou a consulta falhar, o cliente completa a mao, e o botao de
+   * confirmar nunca fica bloqueado por causa disso (ver `missing`, que
+   * so exige rua/numero/bairro/CEP, nao a consulta em si).
+   */
+  const cepDigitos = zipCode.replace(/\D/g, '');
+  const {
+    data: enderecoDoCep,
+    isFetching: buscandoCep,
+    error: erroDoCep,
+  } = useQuery({
+    queryKey: ['viacep', cepDigitos],
+    queryFn: () => buscarEnderecoPorCep(cepDigitos),
+    enabled: type === 'DELIVERY' && cepDigitos.length === 8,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!enderecoDoCep) return;
+    /* So sobrescreve o que a consulta realmente trouxe — um campo que o
+       ViaCEP devolveu vazio (CEP sem nome de rua, por exemplo) nao apaga
+       o que o cliente ja tiver digitado. */
+    if (enderecoDoCep.street) setStreet(enderecoDoCep.street);
+    if (enderecoDoCep.district) setDistrict(enderecoDoCep.district);
+    if (enderecoDoCep.city) setCity(enderecoDoCep.city);
+  }, [enderecoDoCep]);
 
   const subtotal = subtotalCents();
   const deliveryFee = type === 'DELIVERY' ? (quote?.feeCents ?? 0) : 0;
@@ -126,9 +152,6 @@ export function CheckoutPage() {
       if (district.trim().length < 2) list.push('bairro');
     }
     if (paymentMethod === 'CASH_ON_DELIVERY' && !changeFor.trim()) list.push('troco');
-    /* PIX exige e-mail do pagador para o Mercado Pago gerar a cobranca —
-       checagem leve aqui, a validacao de verdade e do servidor. */
-    if (isOnlinePayment(paymentMethod) && !email.trim().includes('@')) list.push('e-mail');
     /* Os campos do cartao ficam em iframes do Mercado Pago e nao dao para
        validar daqui; o SDK recusa a tokenizacao se estiverem incompletos.
        So checamos o que e nosso. */
@@ -138,7 +161,6 @@ export function CheckoutPage() {
   }, [
     name,
     phone,
-    email,
     type,
     zipCode,
     street,
@@ -196,7 +218,6 @@ export function CheckoutPage() {
       customer: {
         name: name.trim(),
         phone: phone.replace(/\D/g, ''),
-        ...(isOnlinePayment(paymentMethod) ? { email: email.trim() } : {}),
       },
       items: items.map((item) => ({
         productId: item.productId,
@@ -285,34 +306,22 @@ export function CheckoutPage() {
                 autoComplete="tel"
               />
             </Field>
-
-            {isOnlinePayment(paymentMethod) && (
-              <Field
-                label="E-mail"
-                required
-                hint="Necessário para gerar a cobrança PIX"
-                error={
-                  email.trim().length > 0 && !email.trim().includes('@')
-                    ? 'Informe um e-mail válido'
-                    : undefined
-                }
-              >
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="voce@email.com"
-                  autoComplete="email"
-                />
-              </Field>
-            )}
           </div>
         </Section>
 
         {type === 'DELIVERY' && (
           <Section title="Endereço de entrega">
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="CEP" required>
+              <Field
+                label="CEP"
+                required
+                hint={
+                  buscandoCep
+                    ? 'Buscando endereço…'
+                    : 'Digite o CEP para preencher automaticamente os dados do endereço.'
+                }
+                error={erroDoCep instanceof CepError ? erroDoCep.message : undefined}
+              >
                 <Input
                   value={zipCode}
                   onChange={(event) => setZipCode(mascararCep(event.target.value))}
@@ -353,7 +362,7 @@ export function CheckoutPage() {
                 />
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Cidade" required>
+                <Field label="Cidade">
                   <Input value={city} onChange={(event) => setCity(event.target.value)} />
                 </Field>
               </div>
@@ -469,6 +478,13 @@ export function CheckoutPage() {
               </li>
             ))}
           </ul>
+
+          {/* Sempre visivel, mesmo com saldo zero — e informativo, nao a
+              opcao de resgate (essa continua so aparecendo com saldo). */}
+          <p className="mb-3 text-sm text-cinza">
+            Seu cashback disponível:{' '}
+            <span className="font-bold text-verde">{formatBRL(saldoCashback)}</span>
+          </p>
 
           {/* So aparece para quem tem saldo — nao adianta anunciar
               cashback para quem ainda nao tem nenhum. */}

@@ -288,9 +288,10 @@ export class OrdersService {
           id: order.id,
           number: order.number,
           totalCents: order.totalCents,
-          /* O "!" e seguro: createOrderSchema exige email quando o
-             pagamento e online, e essa validacao ja rodou no controller. */
-          payerEmail: input.customer.email!,
+          /* O checkout nao pede mais e-mail do cliente, mas o Mercado
+             Pago exige um para gerar a cobranca — gera um marcador
+             valido so para isso, nunca exibido nem usado para contato. */
+          payerEmail: input.customer.email ?? emailDeContingenciaParaMercadoPago(input.customer.phone),
           payerFirstName: input.customer.name.split(' ')[0],
         });
       } catch (error) {
@@ -312,7 +313,7 @@ export class OrdersService {
           id: order.id,
           number: order.number,
           totalCents: order.totalCents,
-          payerEmail: input.customer.email!,
+          payerEmail: input.customer.email ?? emailDeContingenciaParaMercadoPago(input.customer.phone),
           payerFirstName: input.customer.name.split(' ')[0],
           card: input.card!,
         });
@@ -1030,4 +1031,17 @@ function toOrderDto(order: OrderWithRelations) {
       reason: entry.reason,
     })),
   };
+}
+
+/**
+ * O checkout nao coleta mais e-mail do cliente, mas o Mercado Pago recusa
+ * criar uma cobranca (PIX ou cartao) sem `payer.email`. Gera um endereco
+ * sintetico, unico por telefone, so para satisfazer essa exigencia
+ * tecnica — nunca gravado como e-mail do cliente, nunca usado para
+ * contato. `example.com` e reservado pela IANA para documentacao (RFC
+ * 2606): nunca entrega de verdade, entao nunca gera um "e-mail" que
+ * pareça real para ninguem.
+ */
+function emailDeContingenciaParaMercadoPago(phone: string): string {
+  return `pedido-${phone}@sememail.example.com`;
 }
