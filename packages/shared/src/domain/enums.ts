@@ -140,4 +140,5 @@ export const NOTIFICATION_PLACEHOLDERS: Record<string, string> = {
   '{valor}': 'Total do pedido formatado, ex.: R$ 42,00',
   '{status}': 'Status atual por extenso, ex.: Em preparo',
   '{telefone}': 'Telefone do proprio cliente, formatado',
+  '{cashback}': 'Saldo de cashback do cliente, formatado (ex.: R$ 12,50, ou R$ 0,00 sem saldo)',
 };

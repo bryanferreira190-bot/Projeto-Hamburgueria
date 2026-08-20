@@ -9,6 +9,8 @@ export interface PlaceholderContext {
   valor: string;
   status: string;
   telefone: string;
+  /** Saldo de cashback do cliente, ja em BRL (ex.: "R$ 12,50"). */
+  cashback: string;
 }
 
 /**
@@ -19,7 +21,7 @@ export interface PlaceholderContext {
  */
 const TEXTO_PADRAO: Record<TNotificationEvent, string> = {
   ORDER_RECEIVED:
-    '🍔 Pedido recebido!\n\nOlá, {nome}!\n\nRecebemos seu pedido #{pedido}.\n\nTotal: {valor}\n\nEm breve começaremos o preparo. 😊',
+    '🍔 Pedido recebido!\n\nOlá, {nome}!\n\nRecebemos seu pedido #{pedido}.\n\nTotal: {valor}\n\n💰 Seu saldo de cashback: {cashback}\n\nEm breve começaremos o preparo. 😊',
   PAYMENT_APPROVED:
     '✅ Pagamento aprovado!\n\nOlá, {nome}!\n\nO pagamento do pedido #{pedido} foi confirmado.\n\nJá vamos começar a preparar seu pedido. 🍔',
   PREPARING:
@@ -142,6 +144,7 @@ export class MessageTemplateService {
       '{valor}': contexto.valor,
       '{status}': contexto.status,
       '{telefone}': contexto.telefone,
+      '{cashback}': contexto.cashback,
     };
 
     return Object.entries(substituicoes).reduce(

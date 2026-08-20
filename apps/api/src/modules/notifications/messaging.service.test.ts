@@ -1,8 +1,9 @@
-import { NotificationEvent, OrderStatus } from '@adventure/shared';
+import { NotificationEvent, OrderStatus, formatBRL } from '@adventure/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { MessagingService, type OrderNotificationContext } from './messaging.service';
 import type { MessageTemplateService } from './message-template.service';
 import type { EvolutionWhatsAppProvider } from './providers/evolution-whatsapp.provider';
+import type { CashbackService } from '../cashback/cashback.service';
 import type { PrismaService } from '../../infra/prisma/prisma.service';
 import type { Env } from '../../config/env';
 
@@ -28,6 +29,8 @@ function makeService(opts: {
   jaEnviado?: boolean;
   template?: { message: string; isActive: boolean } | null;
   sendResult?: { success: boolean; externalId?: string | null; error?: string };
+  cashbackSaldoCents?: number;
+  cashbackFalha?: boolean;
 } = {}) {
   const env = { WHATSAPP_PROVIDER: opts.provider ?? 'evolution' } as Env;
 
@@ -54,8 +57,17 @@ function makeService(opts: {
     checkHealth: vi.fn().mockResolvedValue({ connected: true }),
   } as unknown as EvolutionWhatsAppProvider;
 
-  const service = new MessagingService(env, prisma, templates, evolution);
-  return { service, prisma, templates, evolution, notificationLogCreate };
+  const cashback = {
+    saldoPorTelefone: opts.cashbackFalha
+      ? vi.fn().mockRejectedValue(new Error('DB fora do ar'))
+      : vi.fn().mockResolvedValue({
+          totalCents: opts.cashbackSaldoCents ?? 0,
+          proximoVencimento: null,
+        }),
+  } as unknown as CashbackService;
+
+  const service = new MessagingService(env, prisma, templates, evolution, cashback);
+  return { service, prisma, templates, evolution, cashback, notificationLogCreate };
 }
 
 describe('MessagingService.notificar', () => {
@@ -112,6 +124,36 @@ describe('MessagingService.notificar', () => {
         errorMessage: null,
       }),
     });
+  });
+
+  it('cliente com cashback: o saldo formatado entra no placeholder {cashback}', async () => {
+    const { service, templates, cashback } = makeService({ cashbackSaldoCents: 1250 });
+
+    await service.notificar(NotificationEvent.ORDER_RECEIVED, CONTEXTO);
+
+    expect(cashback.saldoPorTelefone).toHaveBeenCalledWith('store-1', '11970706978');
+    const [, contexto] = (templates.renderizar as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(contexto.cashback).toBe(formatBRL(1250));
+  });
+
+  it('cliente sem cashback: placeholder {cashback} vem R$ 0,00', async () => {
+    const { service, templates } = makeService({ cashbackSaldoCents: 0 });
+
+    await service.notificar(NotificationEvent.ORDER_RECEIVED, CONTEXTO);
+
+    const [, contexto] = (templates.renderizar as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(contexto.cashback).toBe(formatBRL(0));
+  });
+
+  it('consulta de cashback falha: loga o erro, usa R$ 0,00 e manda a mensagem normalmente', async () => {
+    const { service, evolution, templates } = makeService({ cashbackFalha: true });
+
+    const resultado = await service.notificar(NotificationEvent.ORDER_RECEIVED, CONTEXTO);
+
+    const [, contexto] = (templates.renderizar as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(contexto.cashback).toBe(formatBRL(0));
+    expect(evolution.sendText).toHaveBeenCalled();
+    expect(resultado).toEqual({ enviado: true, simulado: false });
   });
 
   it('provedor falha: nao lanca, devolve enviado:false e grava log de falha', async () => {

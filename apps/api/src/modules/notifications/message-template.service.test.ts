@@ -116,15 +116,21 @@ describe('MessageTemplateService.renderizar', () => {
   it('substitui todos os placeholders conhecidos', () => {
     const { service } = makeService();
 
-    const texto = service.renderizar('Ola {nome}, pedido #{pedido} de {valor} esta {status}. Tel: {telefone}', {
-      nome: 'Joao',
-      pedido: 'A001',
-      valor: 'R$ 30,00',
-      status: 'Em preparo',
-      telefone: '(11) 97070-6978',
-    });
+    const texto = service.renderizar(
+      'Ola {nome}, pedido #{pedido} de {valor} esta {status}. Tel: {telefone}. Cashback: {cashback}',
+      {
+        nome: 'Joao',
+        pedido: 'A001',
+        valor: 'R$ 30,00',
+        status: 'Em preparo',
+        telefone: '(11) 97070-6978',
+        cashback: 'R$ 12,50',
+      },
+    );
 
-    expect(texto).toBe('Ola Joao, pedido #A001 de R$ 30,00 esta Em preparo. Tel: (11) 97070-6978');
+    expect(texto).toBe(
+      'Ola Joao, pedido #A001 de R$ 30,00 esta Em preparo. Tel: (11) 97070-6978. Cashback: R$ 12,50',
+    );
   });
 
   it('placeholder repetido e substituido em todas as ocorrencias', () => {
@@ -136,6 +142,7 @@ describe('MessageTemplateService.renderizar', () => {
       valor: '',
       status: '',
       telefone: '',
+      cashback: '',
     });
 
     expect(texto).toBe('Ana, Ana!');
@@ -150,6 +157,7 @@ describe('MessageTemplateService.renderizar', () => {
       valor: '',
       status: '',
       telefone: '',
+      cashback: '',
     });
 
     expect(texto).toBe('cupom {cupom} para Ana');

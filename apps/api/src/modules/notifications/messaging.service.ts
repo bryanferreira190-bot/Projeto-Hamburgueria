@@ -8,6 +8,7 @@ import {
 import { ENV } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { CashbackService } from '../cashback/cashback.service';
 import { mascararTelefone, paraFormatoInternacional } from '../whatsapp/whatsapp.utils';
 import { EvolutionWhatsAppProvider } from './providers/evolution-whatsapp.provider';
 import type { ProviderHealth, WhatsAppProvider } from './providers/whatsapp-provider.interface';
@@ -65,6 +66,7 @@ export class MessagingService {
     private readonly prisma: PrismaService,
     private readonly templates: MessageTemplateService,
     private readonly evolution: EvolutionWhatsAppProvider,
+    private readonly cashback: CashbackService,
   ) {}
 
   /** Se ha um provedor configurado e pronto para enviar de verdade. */
@@ -191,15 +193,37 @@ export class MessagingService {
       return { enviado: false, simulado: false, motivo: 'template desativado' };
     }
 
+    const saldoCashbackCents = await this.obterSaldoCashback(contexto.storeId, contexto.phone);
+
     const mensagem = this.templates.renderizar(template.message, {
       nome: primeiroNome(contexto.customerName),
       pedido: contexto.orderNumber,
       valor: formatBRL(contexto.totalCents),
       status: ORDER_STATUS_LABELS[contexto.status],
       telefone: formatarTelefone(contexto.phone),
+      cashback: formatBRL(saldoCashbackCents),
     });
 
     return this.enviar(event, contexto, mensagem);
+  }
+
+  /**
+   * Saldo de cashback para o placeholder `{cashback}`. Reaproveita
+   * `CashbackService.saldoPorTelefone` — mesma consulta que o checkout
+   * usa, nenhuma regra de cashback duplicada aqui.
+   *
+   * Nunca deixa a notificacao inteira falhar por causa disto: se a
+   * consulta der erro, loga e segue com R$ 0,00 — mensagem continua
+   * saindo, so sem o saldo certo desta vez.
+   */
+  private async obterSaldoCashback(storeId: string, phone: string): Promise<number> {
+    try {
+      const saldo = await this.cashback.saldoPorTelefone(storeId, phone);
+      return saldo.totalCents;
+    } catch (error) {
+      this.logger.error('Falha ao consultar saldo de cashback para notificacao', error as Error);
+      return 0;
+    }
   }
 
   private async enviar(

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CashbackModule } from '../cashback/cashback.module';
 import { EvolutionWhatsAppProvider } from './providers/evolution-whatsapp.provider';
 import { MessageTemplateService } from './message-template.service';
 import { MessagingService } from './messaging.service';
@@ -16,8 +17,13 @@ import { NotificationsController } from './notifications.controller';
  * Ver DECISOES.md para por que este modulo, com Evolution/Baileys,
  * existe ao lado do modules/whatsapp/ (Meta Cloud API, dormente) em vez
  * de substituir um pelo outro.
+ *
+ * Importa CashbackModule so para ler saldo (`{cashback}` no template —
+ * ver MessagingService.obterSaldoCashback): sem cycle, CashbackModule
+ * nao depende deste.
  */
 @Module({
+  imports: [CashbackModule],
   controllers: [NotificationsController],
   providers: [EvolutionWhatsAppProvider, MessageTemplateService, MessagingService],
   exports: [MessagingService],
