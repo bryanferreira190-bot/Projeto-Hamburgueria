@@ -72,11 +72,9 @@ describe('loadEnv', () => {
     expect(env.REQUIRE_ADMIN_2FA).toBe(false);
   });
 
-  it('IGNORA a tentativa de desligar o 2FA em producao', () => {
-    /* A conta OWNER controla faturamento e cadastro: senha sozinha nao basta,
-       e o .env de producao nao pode enfraquecer isso por engano. */
+  it('respeita a tentativa de desligar o 2FA em producao (decisao explicita do dono, ver DECISOES.md 2026-08-20)', () => {
     const env = loadEnv({ ...validEnv, NODE_ENV: 'production', REQUIRE_ADMIN_2FA: 'false' });
-    expect(env.REQUIRE_ADMIN_2FA).toBe(true);
+    expect(env.REQUIRE_ADMIN_2FA).toBe(false);
   });
 
   it('exige 2FA por padrao quando a variavel nao existe', () => {

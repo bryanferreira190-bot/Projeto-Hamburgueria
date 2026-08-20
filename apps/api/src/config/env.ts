@@ -46,11 +46,17 @@ const envSchema = z.object({
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
 
   /**
-   * Exige segunda etapa para OWNER e MANAGER.
+   * Exige segunda etapa para OWNER e MANAGER (a conta OWNER controla
+   * faturamento e cadastro, e senha sozinha nao basta para isso).
    *
-   * Existe apenas para nao atrapalhar o desenvolvimento local. Em producao
-   * o valor e FORCADO para true mais abaixo — a conta OWNER controla
-   * faturamento e cadastro, e senha sozinha nao basta para isso.
+   * Ate 2026-08-20 este valor era FORCADO para true em producao,
+   * independente do .env — desativar em produção exigia editar codigo,
+   * de proposito, para nao virar um pedido casual ("desativa o 2FA um
+   * pouco") atendido so trocando uma variavel. Removido a pedido
+   * explicito do dono do projeto, ciente do que isso significa — ver
+   * DECISOES.md. Reativar e so voltar esta variavel para `true` no
+   * Railway; nenhum admin perde o cadastro de 2FA (totpSecret continua
+   * gravado), a exigencia so volta a ser cobrada no proximo login.
    */
   REQUIRE_ADMIN_2FA: z
     .enum(['true', 'false'])
@@ -230,9 +236,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     if (new Set(secrets).size !== secrets.length) {
       throw new Error('JWT_ACCESS_SECRET, JWT_REFRESH_SECRET e ENCRYPTION_KEY devem ser distintos');
     }
-
-    /* Nao e configuravel em producao: sobrescreve qualquer valor do .env. */
-    env.REQUIRE_ADMIN_2FA = true;
   }
 
   return env;

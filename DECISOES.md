@@ -5,6 +5,35 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-20 — 2FA do admin desativado temporariamente em produção, a pedido do dono
+
+`REQUIRE_ADMIN_2FA` deixou de ser forçado para `true` em produção
+(`apps/api/src/config/env.ts`). Até aqui, essa flag só existia para não
+atrapalhar o desenvolvimento local — em produção o código sobrescrevia
+qualquer valor do `.env`, de propósito, exatamente para que desativar o
+2FA da conta OWNER (que controla faturamento e cadastro) nunca fosse
+possível só trocando uma variável de ambiente.
+
+O dono do projeto pediu explicitamente para desativar a cobrança do
+código de autenticação no login, "temporariamente até eu pedir para
+ativar novamente". Antes de mexer, o motivo foi confirmado com ele: não
+era perda de acesso ao autenticador nem conveniência de desenvolvimento
+— era mesmo desativar em produção, para todos os admins, sabendo que
+isso remove essa proteção da conta OWNER até ele pedir de volta.
+
+**Desenho pensado para ser revertido sem depender de mim de novo:**
+`REQUIRE_ADMIN_2FA` agora controla de verdade as duas etapas onde o 2FA
+entra — tanto obrigar quem ainda não tem a configurar (`AdminAuthService.login`,
+já existia) quanto cobrar o código de quem já tem 2FA ativo
+(`AdminAuthService.login`, verificação nova). Com a flag em `false`
+(hoje, em produção), nenhuma das duas roda. **Reativar é só voltar
+`REQUIRE_ADMIN_2FA=true` no Railway e reiniciar o serviço** — nenhum
+admin perde o cadastro de 2FA (`totpSecret`/`totpEnabledAt` continuam no
+banco), a cobrança simplesmente volta a valer no próximo login de cada
+um.
+
+---
+
 ## 2026-08-20 — Notificações de pedido: Evolution API (Baileys) ativa agora, Meta pronta para depois
 
 O projeto já tinha uma integração dormente com a Meta Cloud API oficial

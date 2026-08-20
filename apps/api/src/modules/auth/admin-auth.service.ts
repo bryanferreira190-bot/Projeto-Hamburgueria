@@ -111,7 +111,11 @@ export class AdminAuthService {
       };
     }
 
-    if (admin.totpEnabledAt) {
+    /* REQUIRE_ADMIN_2FA=false tambem pula esta etapa para quem ja tem 2FA
+       cadastrado — nao so bloqueia o cadastro de quem ainda nao tem (ver
+       acima). O totpSecret continua gravado; e so a cobranca no login
+       que para, e volta assim que a flag voltar para true. */
+    if (this.env.REQUIRE_ADMIN_2FA && admin.totpEnabledAt) {
       return {
         status: 'TOTP_REQUIRED',
         challengeToken: this.tokens.createTotpChallenge(admin.id),
