@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { cx } from '../lib/cx';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -108,6 +108,55 @@ export function Card({
       )}
       {children}
     </section>
+  );
+}
+
+/** Interruptor liga/desliga — usado onde um checkbox seria pouco visivel (ex.: ativar/desativar um template). */
+export function Switch({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      disabled={disabled}
+      className={cx(
+        'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+        'disabled:cursor-not-allowed disabled:opacity-45',
+        checked ? 'bg-amarelo' : 'bg-borda',
+      )}
+    >
+      <span
+        className={cx(
+          'inline-block size-4.5 translate-x-1 transform rounded-full bg-preto transition-transform',
+          checked && 'translate-x-6',
+        )}
+      />
+    </button>
+  );
+}
+
+export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...rest}
+      className={cx(
+        'w-full rounded-lg border border-borda bg-preto-3 px-4 py-2.5 text-white',
+        'placeholder:text-cinza-2 focus:border-amarelo focus:outline-none',
+        className,
+      )}
+    />
   );
 }
 

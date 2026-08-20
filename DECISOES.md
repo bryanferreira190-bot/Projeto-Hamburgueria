@@ -5,6 +5,71 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-20 — Notificações de pedido: Evolution API (Baileys) ativa agora, Meta pronta para depois
+
+O projeto já tinha uma integração dormente com a Meta Cloud API oficial
+(`apps/api/src/modules/whatsapp/`, `WHATSAPP_ENABLED=false`), e
+`ARQUITETURA.md` documentava explicitamente a decisão de não usar
+bibliotecas não-oficiais (Baileys/Venom) por risco de banimento do número
+comercial (ver a entrada de 2026-08-02 mais abaixo). O dono pediu uma
+integração usando **Evolution API** — que roda sobre Baileys — para uma
+instância já conectada e testada manualmente no Render.
+
+Isso é um conflito direto com a decisão documentada, então foi levantado
+explicitamente antes de qualquer código, com três caminhos possíveis:
+ativar só a Meta (mais lento, sem risco), ativar só a Evolution (mais
+rápido, risco aceito), ou os dois coexistindo. **Escolha do dono: os
+dois** — Evolution ativa agora (`WHATSAPP_PROVIDER=evolution`), Meta
+mantida pronta e intocada para quando a verificação do WhatsApp Business
+Manager terminar (troca vira só mudar variável de ambiente).
+
+**Módulo novo (`apps/api/src/modules/notifications/`), não reaproveita o
+`whatsapp/` existente.** Os dois HTTP clients (`EvolutionWhatsAppProvider`
+e `meta-graph.client.ts`) não compartilham código de propósito: são
+provedores genuinamente independentes, com autenticação, formato de corpo
+e taxonomia de erro próprios — forçar as duas implementações a
+compartilhar base técnica criaria acoplamento entre coisas que precisam
+poder mudar (ou sumir) sem se afetar uma à outra. A pequena duplicação do
+laço de retry (~30 linhas, mesmo padrão) é o preço aceito. Já as funções
+puras de telefone (`paraFormatoInternacional`, `mascararTelefone`) foram
+reaproveitadas de `whatsapp/whatsapp.utils.ts` — não têm estado nem nada
+específico de um provedor.
+
+**Disparo é fire-and-forget (`void promise.catch(...)`), nunca
+`await`ado** por quem cria/atualiza pedido em `OrdersService`/
+`PaymentsService` — diferente do padrão usado para cashback (que é
+aguardado dentro de try/catch). A instância Evolution roda no plano
+gratuito do Render, que hiberna; um `await` aqui poderia pendurar a
+resposta HTTP de quem mudou o status do pedido esperando a Evolution
+acordar. Pedido é prioridade; WhatsApp é secundário — nunca pode
+bloquear ou falhar o fluxo do pedido.
+
+**Idempotência por consulta antes de mandar, não por constraint única.**
+Antes de enviar, confere se já existe `NotificationLog` de sucesso para
+`(orderId, event)`; se sim, pula. Não usa `@@unique` na tabela de log
+porque uma falha seguida de sucesso é um histórico legítimo (duas linhas
+para o mesmo evento), e é defesa a mais — as transições de status que
+disparam notificação já são protegidas por compare-and-swap em
+`OrdersService.updateStatus()`/`PaymentsService.avancarPedidoConformePagamento()`.
+
+**Sem fila (Redis/BullMQ) — decisão explícita, não omissão.** O projeto
+não usa fila hoje; adicionar uma só para isto seria infraestrutura nova
+para um caso de uso que já tem defesa suficiente (retry em memória, até 3
+tentativas com backoff exponencial + jitter). Se as 3 tentativas
+esgotarem, aquela notificação específica se perde — aceitável por ser
+notificação, não o pedido em si.
+
+Templates de mensagem ficam no banco (`NotificationTemplate`, por loja e
+evento), editáveis pelo admin sem deploy, com placeholders de texto livre
+(`{nome} {pedido} {valor} {status} {telefone}`) substituídos por
+`split/join` em vez de regex — `{`/`}` são caracteres especiais de regex,
+e o texto é editado por humano.
+
+Ver `apps/api/src/modules/notifications/README.md` para detalhes de
+configuração, mapeamento evento→status e instruções de teste.
+
+---
+
 ## 2026-08-19 — Filtro de data no Histórico recente
 
 Antes, o Histórico era so um recorte (client-side) da mesma lista dos

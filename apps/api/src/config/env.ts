@@ -113,6 +113,34 @@ const envSchema = z.object({
 
   /** Numero comercial, so para exibicao ao cliente. */
   WHATSAPP_PHONE_NUMBER: z.string().optional().or(z.literal('')),
+
+  /**
+   * NOTIFICACOES AUTOMATICAS DE PEDIDO (Evolution API)
+   *
+   * Modulo SEPARADO do WhatsApp Cloud API acima (ver
+   * modules/whatsapp/README.md): aquele e a Meta oficial, planejada desde
+   * o inicio do projeto mas ainda dependente de verificacao Meta Business;
+   * este e a Evolution API (Baileys), ligada AGORA por decisao consciente
+   * do dono para ter mensagem automatica funcionando ja, sabendo do risco
+   * de banimento que Baileys carrega — ver DECISOES.md.
+   *
+   * `none` (padrao) desliga o disparo automatico inteiro: pedido continua
+   * funcionando normalmente, nenhuma chamada sai. Nunca falha o boot por
+   * falta de credencial quando desligado.
+   */
+  WHATSAPP_PROVIDER: z.enum(['none', 'evolution']).default('none'),
+
+  /** Base da Evolution API, sem barra no final (ex.: https://minha-evolution.onrender.com). */
+  EVOLUTION_API_URL: z
+    .string()
+    .url('EVOLUTION_API_URL deve ser uma URL completa')
+    .or(z.literal(''))
+    .default('')
+    .transform((value) => value.replace(/\/+$/, '')),
+  /** Chave enviada no header `apikey`. Segredo — nunca vai ao frontend. */
+  EVOLUTION_API_KEY: z.string().optional().or(z.literal('')),
+  /** Nome da instancia ja conectada ao WhatsApp Business (ex.: adventure-burguer). */
+  EVOLUTION_INSTANCE: z.string().optional().or(z.literal('')),
 });
 
 function secretMessage(name: string): string {
@@ -160,6 +188,26 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       throw new Error(
         `WHATSAPP_ENABLED=true, mas falta: ${faltando.join(', ')}. ` +
           'Preencha as credenciais ou volte para WHATSAPP_ENABLED=false.',
+      );
+    }
+  }
+
+  /** Mesmo raciocinio, para o provedor de notificacoes automaticas. */
+  if (env.WHATSAPP_PROVIDER === 'evolution') {
+    const faltando = (
+      [
+        ['EVOLUTION_API_URL', env.EVOLUTION_API_URL],
+        ['EVOLUTION_API_KEY', env.EVOLUTION_API_KEY],
+        ['EVOLUTION_INSTANCE', env.EVOLUTION_INSTANCE],
+      ] as const
+    )
+      .filter(([, valor]) => !valor)
+      .map(([nome]) => nome);
+
+    if (faltando.length > 0) {
+      throw new Error(
+        `WHATSAPP_PROVIDER=evolution, mas falta: ${faltando.join(', ')}. ` +
+          'Preencha as credenciais ou volte para WHATSAPP_PROVIDER=none.',
       );
     }
   }

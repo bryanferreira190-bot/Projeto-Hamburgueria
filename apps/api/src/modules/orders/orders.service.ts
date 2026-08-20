@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  NotificationEvent,
   OrderStatus,
   OrderType,
   PaymentMethod,
@@ -25,6 +26,7 @@ import { hojeNoFusoDaLoja } from '../../common/timezone';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CashbackService } from '../cashback/cashback.service';
 import { DeliveryService } from '../delivery/delivery.service';
+import { MessagingService } from '../notifications/messaging.service';
 import { PaymentsService } from '../payments/payments.service';
 import { StoreService } from '../store/store.service';
 import { OrderPricingService } from './order-pricing.service';
@@ -40,6 +42,7 @@ export class OrdersService {
     private readonly delivery: DeliveryService,
     private readonly payments: PaymentsService,
     private readonly cashback: CashbackService,
+    private readonly messaging: MessagingService,
   ) {}
 
   /**
@@ -242,6 +245,31 @@ export class OrdersService {
     });
 
     this.logger.log(`Pedido ${order.number} criado — ${formatBRL(order.totalCents)}`);
+
+    /**
+     * "Pedido recebido" so para quem ja nasce CONFIRMED (pagamento na
+     * entrega/balcao) — pagamento online ainda nem foi cobrado neste
+     * ponto, e a mensagem de PAYMENT_APPROVED (mais abaixo/em
+     * PaymentsService) e o primeiro aviso que faz sentido para esses.
+     *
+     * Fire-and-forget de proposito, sem `await`: notificar() nunca
+     * lanca, mas Evolution pode demorar (Render acordando) e a resposta
+     * de "pedido criado" para quem esta pedindo nao pode esperar por
+     * isso — ver DECISOES.md.
+     */
+    if (order.status === OrderStatus.CONFIRMED) {
+      void this.messaging
+        .notificar(NotificationEvent.ORDER_RECEIVED, {
+          storeId: order.storeId,
+          orderId: order.id,
+          orderNumber: order.number,
+          customerName: input.customer.name,
+          phone: input.customer.phone,
+          totalCents: order.totalCents,
+          status: order.status,
+        })
+        .catch((error) => this.logger.error('Falha ao notificar pedido recebido', error as Error));
+    }
 
     /**
      * A cobranca PIX e criada FORA da transacao acima de proposito: e uma
@@ -570,7 +598,16 @@ export class OrdersService {
   ) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, number: true, status: true, type: true, couponId: true },
+      select: {
+        id: true,
+        storeId: true,
+        number: true,
+        status: true,
+        type: true,
+        couponId: true,
+        totalCents: true,
+        customer: { select: { name: true, phone: true } },
+      },
     });
 
     if (!order) throw new NotFoundException('Pedido nao encontrado');
@@ -689,6 +726,52 @@ export class OrdersService {
           error as Error,
         );
       }
+    }
+
+    /**
+     * Notificacao automatica de pedido — fire-and-forget, mesmo motivo
+     * do ORDER_RECEIVED em create(): nunca pode atrasar esta resposta,
+     * e MessagingService.notificar() ja nunca lanca por conta propria.
+     *
+     * CONFIRMED so notifica quando o pedido VINHA de PENDING_PAYMENT —
+     * e a transicao de pagamento aprovado (cartao, resolvido aqui
+     * mesmo em create(); PIX cai em PaymentsService, caminho separado,
+     * ver avancarPedidoConformePagamento). Confirmar um pedido que ja
+     * nasceu CONFIRMED nunca acontece (nao ha essa transicao na
+     * maquina de estados), mas a checagem documenta a intencao.
+     *
+     * DELIVERED e COMPLETED usam o MESMO evento: um e entrega, outro e
+     * retirada, mas "aproveite seu pedido" serve para os dois — nao ha
+     * motivo para o admin configurar textos separados so por isso.
+     */
+    const eventoDeNotificacao =
+      nextStatus === OrderStatus.CONFIRMED && order.status === OrderStatus.PENDING_PAYMENT
+        ? NotificationEvent.PAYMENT_APPROVED
+        : nextStatus === OrderStatus.PREPARING
+          ? NotificationEvent.PREPARING
+          : nextStatus === OrderStatus.OUT_FOR_DELIVERY
+            ? NotificationEvent.OUT_FOR_DELIVERY
+            : nextStatus === OrderStatus.DELIVERED || nextStatus === OrderStatus.COMPLETED
+              ? NotificationEvent.DELIVERED
+              : null;
+
+    if (eventoDeNotificacao) {
+      void this.messaging
+        .notificar(eventoDeNotificacao, {
+          storeId: order.storeId,
+          orderId: order.id,
+          orderNumber: order.number,
+          customerName: order.customer?.name ?? null,
+          phone: order.customer?.phone ?? null,
+          totalCents: order.totalCents,
+          status: nextStatus,
+        })
+        .catch((error) =>
+          this.logger.error(
+            `Falha ao notificar pedido ${order.number} (${eventoDeNotificacao})`,
+            error as Error,
+          ),
+        );
     }
 
     this.logger.log(`Pedido ${order.number}: ${order.status} -> ${nextStatus}`);

@@ -9,6 +9,7 @@ import type { StoreService } from '../store/store.service';
 import type { DeliveryService } from '../delivery/delivery.service';
 import type { PaymentsService } from '../payments/payments.service';
 import type { CashbackService } from '../cashback/cashback.service';
+import type { MessagingService } from '../notifications/messaging.service';
 
 /**
  * Cobre os dois pontos que a auditoria identificou como reais condicoes de
@@ -53,6 +54,7 @@ function makeTx(overrides: Record<string, unknown> = {}) {
 function fullOrder(overrides: Record<string, unknown>) {
   return {
     id: 'o1',
+    storeId: STORE.id,
     number: 'A001',
     status: OrderStatus.CONFIRMED,
     type: OrderType.PICKUP,
@@ -136,8 +138,15 @@ function makeService(opts: {
     anularCreditoDoPedido: vi.fn().mockResolvedValue(undefined),
   } as unknown as CashbackService;
 
-  const service = new OrdersService(prisma, pricing, store, delivery, payments, cashback);
-  return { service, prisma, tx, payments, cashback };
+  /* notificar() e fire-and-forget (nunca await'ado por quem chama) e
+     resolve para um objeto, nunca lanca — mock so precisa devolver algo
+     "thenable" para o .catch() encadeado por OrdersService nao quebrar. */
+  const messaging = {
+    notificar: vi.fn().mockResolvedValue({ enviado: true, simulado: true }),
+  } as unknown as MessagingService;
+
+  const service = new OrdersService(prisma, pricing, store, delivery, payments, cashback, messaging);
+  return { service, prisma, tx, payments, cashback, messaging };
 }
 
 const PEDIDO_BASE: CreateOrderFixture = {
@@ -384,6 +393,7 @@ describe('OrdersService.list', () => {
       {} as DeliveryService,
       {} as PaymentsService,
       {} as CashbackService,
+      {} as MessagingService,
     );
 
     return { service, prisma };
@@ -429,6 +439,7 @@ describe('OrdersService.buscarClientePorTelefone', () => {
       {} as DeliveryService,
       {} as PaymentsService,
       {} as CashbackService,
+      {} as MessagingService,
     );
 
     return { service, prisma };

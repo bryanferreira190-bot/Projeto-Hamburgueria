@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PaymentsService } from './payments.service';
 import type { PrismaService } from '../../infra/prisma/prisma.service';
 import type { MercadoPagoService } from './mercadopago.service';
+import type { MessagingService } from '../notifications/messaging.service';
 import type { Env } from '../../config/env';
 
 /**
@@ -57,8 +58,12 @@ function makeService(opts: {
     refundOrder: vi.fn().mockResolvedValue({}),
   } as unknown as MercadoPagoService;
 
-  const service = new PaymentsService(prisma, mercadoPago, ENV);
-  return { service, prisma, mercadoPago, tx };
+  const messaging = {
+    notificar: vi.fn().mockResolvedValue({ enviado: true, simulado: true }),
+  } as unknown as MessagingService;
+
+  const service = new PaymentsService(prisma, mercadoPago, messaging, ENV);
+  return { service, prisma, mercadoPago, messaging, tx };
 }
 
 describe('PaymentsService.handleNotification — nunca confia no corpo do webhook', () => {
@@ -154,7 +159,7 @@ describe('PaymentsService.refundIfPaid', () => {
       payment: { findFirst: vi.fn().mockResolvedValue(null) },
     } as unknown as PrismaService;
     const mercadoPago = { refundOrder: vi.fn() } as unknown as MercadoPagoService;
-    const service = new PaymentsService(prisma, mercadoPago, ENV);
+    const service = new PaymentsService(prisma, mercadoPago, {} as MessagingService, ENV);
 
     await service.refundIfPaid('o1', 'A001');
 
@@ -177,7 +182,7 @@ describe('PaymentsService.refundIfPaid', () => {
     const mercadoPago = {
       refundOrder: vi.fn().mockResolvedValue({}),
     } as unknown as MercadoPagoService;
-    const service = new PaymentsService(prisma, mercadoPago, ENV);
+    const service = new PaymentsService(prisma, mercadoPago, {} as MessagingService, ENV);
 
     await service.refundIfPaid('o1', 'A001');
 
@@ -205,7 +210,7 @@ describe('PaymentsService.refundIfPaid', () => {
     const mercadoPago = {
       refundOrder: vi.fn().mockRejectedValue(new Error('Mercado Pago fora do ar')),
     } as unknown as MercadoPagoService;
-    const service = new PaymentsService(prisma, mercadoPago, ENV);
+    const service = new PaymentsService(prisma, mercadoPago, {} as MessagingService, ENV);
 
     await expect(service.refundIfPaid('o1', 'A001')).resolves.toBeUndefined();
     expect((prisma.payment.update as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();

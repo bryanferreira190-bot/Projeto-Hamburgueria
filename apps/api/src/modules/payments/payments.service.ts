@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import {
+  NotificationEvent,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -11,6 +12,7 @@ import { Inject } from '@nestjs/common';
 import { ENV } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { MessagingService } from '../notifications/messaging.service';
 import { MercadoPagoService } from './mercadopago.service';
 
 const MINUTOS_PARA_EXPIRAR_PIX = 30;
@@ -103,6 +105,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mercadoPago: MercadoPagoService,
+    private readonly messaging: MessagingService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -440,7 +443,14 @@ export class PaymentsService {
   ): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, number: true, status: true },
+      select: {
+        id: true,
+        storeId: true,
+        number: true,
+        status: true,
+        totalCents: true,
+        customer: { select: { name: true, phone: true } },
+      },
     });
     if (!order || order.status !== OrderStatus.PENDING_PAYMENT) return;
 
@@ -499,6 +509,26 @@ export class PaymentsService {
 
     if (alterado) {
       this.logger.log(`Pedido ${order.number}: ${order.status} -> ${proximo} (webhook Mercado Pago)`);
+
+      /* Fire-and-forget, mesmo motivo de sempre: webhook do Mercado
+         Pago precisa responder rapido, e notificar() nunca lanca por
+         conta propria. So PAID gera aviso — pagamento recusado nao
+         esta nos 5 eventos configuraveis (ver DECISOES.md). */
+      if (proximo === OrderStatus.CONFIRMED) {
+        void this.messaging
+          .notificar(NotificationEvent.PAYMENT_APPROVED, {
+            storeId: order.storeId,
+            orderId: order.id,
+            orderNumber: order.number,
+            customerName: order.customer?.name ?? null,
+            phone: order.customer?.phone ?? null,
+            totalCents: order.totalCents,
+            status: proximo,
+          })
+          .catch((error) =>
+            this.logger.error(`Falha ao notificar pedido ${order.number} (PAYMENT_APPROVED)`, error as Error),
+          );
+      }
     }
   }
 }

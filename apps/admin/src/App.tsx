@@ -9,6 +9,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { BalcaoPage } from './features/balcao/BalcaoPage';
 import { CashbackPage } from './features/cashback/CashbackPage';
 import { OrdersPage } from './features/orders/OrdersPage';
+import { WhatsAppSettingsPage } from './features/settings/WhatsAppSettingsPage';
 import { usePedidosGlobais } from './features/orders/usePedidosGlobais';
 import { useAvisoDePedidoNovo } from './features/orders/useAvisoDePedidoNovo';
 import { destravarSom, tocarAvisoDePedido } from './lib/som';
@@ -83,6 +84,10 @@ function Layout() {
   /* A cozinha nao precisa ver faturamento — o menu esconde o que o papel
      nao acessa, e a API recusa de qualquer forma. */
   const podeVerRelatorios = admin ? hasRoleLevel(admin.role, AdminRole.MANAGER) : false;
+  /* Config de WhatsApp edita o que todo cliente recebe dali para frente
+     e pode disparar mensagem de teste de verdade — mesmo nivel de acesso
+     que credenciais/2FA, so OWNER. */
+  const isOwner = admin ? hasRoleLevel(admin.role, AdminRole.OWNER) : false;
 
   /**
    * Buscado AQUI, no Layout — que fica montado o tempo todo enquanto
@@ -158,6 +163,7 @@ function Layout() {
                 dashboard, so MANAGER para cima. */}
             {podeVerRelatorios && <Aba para="/cashback">Cashback</Aba>}
             {podeVerRelatorios && <Aba para="/dashboard">Dashboard</Aba>}
+            {isOwner && <Aba para="/configuracoes">Configurações</Aba>}
           </nav>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -218,6 +224,10 @@ function Layout() {
                   <Navigate to="/pedidos" replace />
                 )
               }
+            />
+            <Route
+              path="/configuracoes"
+              element={isOwner ? <WhatsAppSettingsPage /> : <Navigate to="/pedidos" replace />}
             />
             <Route path="*" element={<Navigate to="/pedidos" replace />} />
           </Routes>

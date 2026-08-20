@@ -13,6 +13,7 @@ import { CashbackModule } from './modules/cashback/cashback.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { HealthModule } from './modules/health/health.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -57,6 +58,7 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
     ReportsModule,
     CashbackModule,
     WhatsAppModule,
+    NotificationsModule,
   ],
   providers: [
     /**

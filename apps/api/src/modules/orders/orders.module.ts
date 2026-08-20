@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CashbackModule } from '../cashback/cashback.module';
 import { DeliveryModule } from '../delivery/delivery.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { StoreModule } from '../store/store.module';
 import { ExpiredPixJob } from './expired-pix.job';
@@ -9,7 +10,7 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
 @Module({
-  imports: [StoreModule, DeliveryModule, PaymentsModule, CashbackModule],
+  imports: [StoreModule, DeliveryModule, PaymentsModule, CashbackModule, NotificationsModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrderPricingService, ExpiredPixJob],
   exports: [OrdersService],

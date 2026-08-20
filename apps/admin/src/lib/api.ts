@@ -1,4 +1,9 @@
-import type { AdminRole, DashboardData, ResumoDeCashback } from '@adventure/shared';
+import type {
+  AdminRole,
+  DashboardData,
+  NotificationEvent,
+  ResumoDeCashback,
+} from '@adventure/shared';
 import { useAuth, type AdminProfile } from './auth';
 
 /**
@@ -23,7 +28,7 @@ export class ApiError extends Error {
 }
 
 interface Options {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   /** Rotas de autenticacao nao devem disparar a renovacao automatica. */
   skipRefresh?: boolean;
@@ -246,6 +251,29 @@ export interface ManualOrderPayload {
   changeForCents?: number;
 }
 
+export interface NotificationStatus {
+  ativo: boolean;
+  provider: string | null;
+  conectado: boolean;
+  detalhe?: string;
+}
+
+export interface NotificationTemplateRow {
+  id: string;
+  storeId: string;
+  event: NotificationEvent;
+  message: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationResult {
+  enviado: boolean;
+  simulado: boolean;
+  motivo?: string;
+}
+
 /* ---------------- Chamadas ---------------- */
 
 export const api = {
@@ -345,6 +373,27 @@ export const api = {
     link.click();
     URL.revokeObjectURL(url);
   },
+
+  notificationStatus: () => request<NotificationStatus>('/notifications/status'),
+
+  notificationTemplates: () => request<NotificationTemplateRow[]>('/notifications/templates'),
+
+  updateNotificationTemplate: (event: NotificationEvent, data: { message?: string; isActive?: boolean }) =>
+    request<NotificationTemplateRow>(`/notifications/templates/${event}`, {
+      method: 'PUT',
+      body: data,
+    }),
+
+  restoreNotificationTemplate: (event: NotificationEvent) =>
+    request<NotificationTemplateRow>(`/notifications/templates/${event}/restore`, {
+      method: 'POST',
+    }),
+
+  sendTestNotification: (phone: string, message: string) =>
+    request<NotificationResult>('/notifications/test', {
+      method: 'POST',
+      body: { phone, message },
+    }),
 };
 
 /** Setup token e usado apenas nas rotas de configuracao do 2FA. */

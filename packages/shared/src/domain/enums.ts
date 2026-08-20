@@ -99,3 +99,45 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CASH_ON_DELIVERY: 'Dinheiro na entrega',
   CARD_ON_DELIVERY: 'Maquininha na entrega',
 };
+
+/**
+ * Eventos que disparam notificacao automatica de pedido por WhatsApp.
+ *
+ * So os momentos que o cliente realmente precisa saber sem perguntar —
+ * nao e todo status da maquina de estados (ver order-status.ts) que
+ * gera aviso. READY e AWAITING_PICKUP, por exemplo, nao tem mensagem
+ * propria: quem retira no balcao nao precisa de WhatsApp para isso.
+ *
+ * DELIVERED cobre tanto entrega quanto retirada concluida (status
+ * COMPLETED) — o texto "aproveite seu pedido" serve para os dois, e
+ * criar um evento a mais so para retirada seria distincao sem
+ * diferenca pratica na mensagem.
+ */
+export const NotificationEvent = {
+  ORDER_RECEIVED: 'ORDER_RECEIVED',
+  PAYMENT_APPROVED: 'PAYMENT_APPROVED',
+  PREPARING: 'PREPARING',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  DELIVERED: 'DELIVERED',
+} as const;
+export type NotificationEvent = (typeof NotificationEvent)[keyof typeof NotificationEvent];
+
+export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
+  ORDER_RECEIVED: 'Pedido recebido',
+  PAYMENT_APPROVED: 'Pagamento aprovado',
+  PREPARING: 'Em preparo',
+  OUT_FOR_DELIVERY: 'Saiu para entrega',
+  DELIVERED: 'Entregue/concluido',
+};
+
+/**
+ * Placeholders aceitos no texto de cada template, e o que cada um vira.
+ * Ver o parser em NotificationsModule (renderizarTemplate).
+ */
+export const NOTIFICATION_PLACEHOLDERS: Record<string, string> = {
+  '{nome}': 'Primeiro nome do cliente (ou "Tudo bem" sem nome cadastrado)',
+  '{pedido}': 'Numero do pedido, ex.: A012',
+  '{valor}': 'Total do pedido formatado, ex.: R$ 42,00',
+  '{status}': 'Status atual por extenso, ex.: Em preparo',
+  '{telefone}': 'Telefone do proprio cliente, formatado',
+};

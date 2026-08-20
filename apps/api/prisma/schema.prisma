@@ -67,67 +67,79 @@ enum DiscountType {
   FIXED
 }
 
+/// Eventos que disparam notificacao automatica de pedido (WhatsApp).
+/// Espelha packages/shared/src/domain/enums.ts.
+enum NotificationEvent {
+  ORDER_RECEIVED
+  PAYMENT_APPROVED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
 // ============================================================================
 //  LOJA E OPERACAO
 // ============================================================================
 
 model Store {
-  id           String  @id @default(uuid()) @db.Uuid
-  name         String  @db.VarChar(120)
-  slug         String  @unique @db.VarChar(120)
-  phone        String  @db.VarChar(20)
-  whatsapp     String? @db.VarChar(20)
-  email        String? @db.VarChar(160)
-  logoUrl      String? @db.VarChar(500)
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String  @db.VarChar(120)
+  slug     String  @unique @db.VarChar(120)
+  phone    String  @db.VarChar(20)
+  whatsapp String? @db.VarChar(20)
+  email    String? @db.VarChar(160)
+  logoUrl  String? @db.VarChar(500)
 
   // Endereco da loja
-  zipCode      String  @db.VarChar(8)
-  street       String  @db.VarChar(160)
-  number       String  @db.VarChar(20)
-  complement   String? @db.VarChar(120)
-  district     String  @db.VarChar(120)
-  city         String  @db.VarChar(120)
-  state        String  @db.VarChar(2)
-  latitude     Float?
-  longitude    Float?
+  zipCode    String  @db.VarChar(8)
+  street     String  @db.VarChar(160)
+  number     String  @db.VarChar(20)
+  complement String? @db.VarChar(120)
+  district   String  @db.VarChar(120)
+  city       String  @db.VarChar(120)
+  state      String  @db.VarChar(2)
+  latitude   Float?
+  longitude  Float?
 
   // Regras comerciais, em centavos
-  minOrderCents        Int     @default(0)
-  baseDeliveryFeeCents Int     @default(0)
-  avgPrepMinutes       Int     @default(30)
+  minOrderCents        Int @default(0)
+  baseDeliveryFeeCents Int @default(0)
+  avgPrepMinutes       Int @default(30)
 
   // ----- Cashback -----
   // Ficam no banco, e nao como constante no codigo, porque sao regras
   // comerciais: mudar o percentual ou a validade nao deveria exigir
   // deploy. Zerar cashbackPercent desliga o programa inteiro.
   /// Quanto do valor PAGO EM DINHEIRO volta como cashback. 5 = 5%.
-  cashbackPercent Int @default(5)
+  cashbackPercent          Int @default(5)
   /// Dias ate o credito expirar. Conta a partir do momento em que o
   /// pedido e concluido, nao de quando foi feito.
-  cashbackExpiryDays Int @default(20)
+  cashbackExpiryDays       Int @default(20)
   /// Teto de quanto de UM pedido pode ser pago com cashback. Protege a
   /// margem: sem isso, um pedido inteiro sairia sem dinheiro novo
   /// entrando. 100 = sem teto.
   cashbackMaxRedeemPercent Int @default(50)
 
   // Pausa emergencial: interrompe pedidos mesmo dentro do horario
-  isOpenOverride Boolean @default(true)
+  isOpenOverride  Boolean @default(true)
   acceptsDelivery Boolean @default(true)
   acceptsPickup   Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  businessHours BusinessHour[]
-  deliveryZones DeliveryZone[]
-  categories    Category[]
-  products      Product[]
-  optionGroups  OptionGroup[]
-  coupons       Coupon[]
-  orders          Order[]
-  admins          AdminUser[]
-  customers       Customer[]
-  cashbackCredits CashbackCredit[]
+  businessHours         BusinessHour[]
+  deliveryZones         DeliveryZone[]
+  categories            Category[]
+  products              Product[]
+  optionGroups          OptionGroup[]
+  coupons               Coupon[]
+  orders                Order[]
+  admins                AdminUser[]
+  customers             Customer[]
+  cashbackCredits       CashbackCredit[]
+  notificationTemplates NotificationTemplate[]
+  notificationLogs      NotificationLog[]
 
   @@map("store")
 }
@@ -137,11 +149,11 @@ model BusinessHour {
   storeId String @db.Uuid
 
   /// 0 = domingo ... 6 = sabado
-  weekday   Int
+  weekday  Int
   /// Minutos desde a meia-noite. 18:00 = 1080. Evita fuso e parsing de string.
-  opensAt   Int
-  closesAt  Int
-  isClosed  Boolean @default(false)
+  opensAt  Int
+  closesAt Int
+  isClosed Boolean @default(false)
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
@@ -209,7 +221,7 @@ model Product {
   /// Endereco publico da foto. Aponta para /catalog/products/:id/image
   /// quando a foto foi enviada pelo painel, ou para um arquivo estatico
   /// quando veio do seed inicial.
-  imageUrl    String? @db.VarChar(500)
+  imageUrl String? @db.VarChar(500)
 
   /// FOTO GUARDADA NO PROPRIO BANCO
   ///
@@ -224,16 +236,16 @@ model Product {
   /// exibindo a foto antiga depois da troca.
   imageVersion  Int     @default(0)
 
-  priceCents Int
+  priceCents          Int
   /// Preco "de", apenas para exibir promocao. Nao entra em nenhum calculo.
   compareAtPriceCents Int?
 
-  position      Int     @default(0)
-  isActive      Boolean @default(true)
-  isAvailable   Boolean @default(true)
-  isFeatured    Boolean @default(false)
-  serves        Int?
-  prepMinutes   Int?
+  position    Int     @default(0)
+  isActive    Boolean @default(true)
+  isAvailable Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  serves      Int?
+  prepMinutes Int?
 
   /// Soft delete: pedidos antigos precisam continuar legiveis.
   deletedAt DateTime?
@@ -241,8 +253,8 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  store        Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  category     Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  store        Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category     Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   optionGroups ProductOptionGroup[]
   orderItems   OrderItem[]
   salesRollups ProductSalesRollup[]
@@ -257,11 +269,11 @@ model OptionGroup {
   id      String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
 
-  name        String @db.VarChar(120)
+  name        String  @db.VarChar(120)
   description String? @db.VarChar(300)
   /// Quantas opcoes o cliente deve escolher. min=1 torna o grupo obrigatorio.
-  minSelect   Int    @default(0)
-  maxSelect   Int    @default(1)
+  minSelect   Int     @default(0)
+  maxSelect   Int     @default(1)
   isActive    Boolean @default(true)
 
   createdAt DateTime @default(now())
@@ -289,7 +301,7 @@ model Option {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  optionGroup     OptionGroup       @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  optionGroup      OptionGroup       @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
   orderItemOptions OrderItemOption[]
 
   @@index([optionGroupId, position])
@@ -321,17 +333,17 @@ model Customer {
   name  String? @db.VarChar(120)
   email String? @db.VarChar(160)
 
-  isBlocked Boolean @default(false)
+  isBlocked   Boolean   @default(false)
   lastOrderAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  store            Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  addresses        CustomerAddress[]
-  orders           Order[]
-  otpCodes         OtpCode[]
-  cashbackCredits  CashbackCredit[]
+  store           Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  addresses       CustomerAddress[]
+  orders          Order[]
+  otpCodes        OtpCode[]
+  cashbackCredits CashbackCredit[]
 
   @@unique([storeId, phone])
   @@map("customer")
@@ -339,13 +351,11 @@ model Customer {
 
 /**
  * Um credito de cashback, com validade propria.
- *
  * MODELO DE LOTES, e nao um saldo unico no cliente: cada pedido gera um
  * credito que expira na sua propria data. Um saldo unico (ex.: um campo
  * `cashbackCents` no Customer) nao teria como saber QUANTO expira amanha
  * — que e justamente a informacao do aviso no WhatsApp — nem qual parte
  * do saldo vence primeiro.
- *
  * O saldo do cliente e a SOMA de `remainingCents` dos creditos ainda
  * dentro da validade. Gastar consome os creditos que vencem antes
  * (FIFO por expiresAt), para o cliente nunca perder valor que daria
@@ -358,7 +368,7 @@ model CashbackCredit {
 
   /// Quanto este credito valia quando nasceu. Nao muda — serve de
   /// historico ("ganhou R$ 3,50 no pedido A012").
-  amountCents Int
+  amountCents    Int
   /// Quanto ainda resta. Cai conforme o cliente usa; zero = esgotado.
   remainingCents Int
 
@@ -428,11 +438,11 @@ model OtpCode {
   id         String  @id @default(uuid()) @db.Uuid
   customerId String? @db.Uuid
 
-  phone String @db.VarChar(11)
+  phone      String    @db.VarChar(11)
   /// Hash do codigo, nunca o codigo em texto puro.
-  codeHash  String   @db.VarChar(200)
-  expiresAt DateTime
-  attempts  Int      @default(0)
+  codeHash   String    @db.VarChar(200)
+  expiresAt  DateTime
+  attempts   Int       @default(0)
   consumedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -451,17 +461,17 @@ model Coupon {
   id      String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
 
-  code         String       @db.VarChar(40)
-  description  String?      @db.VarChar(200)
-  discountType DiscountType
+  code             String       @db.VarChar(40)
+  description      String?      @db.VarChar(200)
+  discountType     DiscountType
   /// Percentual (1-100) ou valor em centavos, conforme discountType.
-  discountValue Int
+  discountValue    Int
   maxDiscountCents Int?
-  minOrderCents    Int     @default(0)
+  minOrderCents    Int          @default(0)
 
-  usageLimit      Int?
-  usageCount      Int  @default(0)
-  perCustomerLimit Int @default(1)
+  usageLimit       Int?
+  usageCount       Int  @default(0)
+  perCustomerLimit Int  @default(1)
 
   startsAt DateTime?
   endsAt   DateTime?
@@ -522,17 +532,17 @@ model Order {
   manualCustomerName String? @db.VarChar(120)
 
   // ----- Valores, todos em centavos, todos calculados no servidor -----
-  subtotalCents    Int
-  deliveryFeeCents Int @default(0)
-  discountCents    Int @default(0)
+  subtotalCents     Int
+  deliveryFeeCents  Int @default(0)
+  discountCents     Int @default(0)
   /// Quanto deste pedido foi abatido com cashback do proprio cliente.
   /// Separado de discountCents (que e cupom) de proposito: sao coisas
   /// diferentes no fechamento de caixa — cupom e desconto promocional,
   /// cashback e saldo que o cliente ja tinha conquistado.
   cashbackUsedCents Int @default(0)
-  totalCents       Int
+  totalCents        Int
 
-  paymentMethod PaymentMethod
+  paymentMethod  PaymentMethod
   /// Para levar troco. Apenas quando o pagamento e em dinheiro.
   changeForCents Int?
 
@@ -553,22 +563,23 @@ model Order {
   /// Impede pedido duplicado quando o cliente clica duas vezes em "Finalizar".
   idempotencyKey String? @db.VarChar(80)
 
-  confirmedAt DateTime?
-  readyAt     DateTime?
-  deliveredAt DateTime?
-  canceledAt  DateTime?
-  cancelReason String? @db.VarChar(200)
+  confirmedAt  DateTime?
+  readyAt      DateTime?
+  deliveredAt  DateTime?
+  canceledAt   DateTime?
+  cancelReason String?   @db.VarChar(200)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  store         Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  customer      Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  coupon        Coupon?              @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  items           OrderItem[]
-  statusHistory   OrderStatusHistory[]
-  payments        Payment[]
-  cashbackCredit  CashbackCredit?
+  store            Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer         Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  coupon           Coupon?              @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
+  statusHistory    OrderStatusHistory[]
+  payments         Payment[]
+  cashbackCredit   CashbackCredit?
+  notificationLogs NotificationLog[]
 
   @@unique([storeId, orderDate, number])
   @@unique([storeId, idempotencyKey])
@@ -582,17 +593,17 @@ model OrderItem {
   id      String @id @default(uuid()) @db.Uuid
   orderId String @db.Uuid
 
-  productId String @db.Uuid
+  productId   String @db.Uuid
   /// Nome copiado: o produto pode ser renomeado ou removido depois.
   productName String @db.VarChar(160)
 
-  quantity   Int
+  quantity          Int
   /// Preco unitario COPIADO do produto no instante do pedido.
-  unitPriceCents Int
+  unitPriceCents    Int
   /// Soma dos adicionais escolhidos, por unidade.
   optionsPriceCents Int @default(0)
   /// (unitPrice + optionsPrice) * quantity
-  totalCents Int
+  totalCents        Int
 
   notes String? @db.VarChar(200)
 
@@ -624,11 +635,11 @@ model OrderStatusHistory {
   id      String @id @default(uuid()) @db.Uuid
   orderId String @db.Uuid
 
-  fromStatus OrderStatus?
-  toStatus   OrderStatus
+  fromStatus       OrderStatus?
+  toStatus         OrderStatus
   /// Quem mudou: id do admin, ou null quando foi o sistema (ex.: webhook).
-  changedByAdminId String? @db.Uuid
-  reason String? @db.VarChar(200)
+  changedByAdminId String?      @db.Uuid
+  reason           String?      @db.VarChar(200)
 
   createdAt DateTime @default(now())
 
@@ -653,17 +664,17 @@ model Payment {
   amountCents Int
 
   /// Identificador do pagamento no provedor.
-  externalId String? @db.VarChar(120)
+  externalId     String? @db.VarChar(120)
   /// Enviada ao provedor para nao cobrar duas vezes na mesma tentativa.
   idempotencyKey String? @db.VarChar(80)
 
-  pixQrCode      String? @db.Text
-  pixCopyPaste   String? @db.Text
-  pixExpiresAt   DateTime?
+  pixQrCode    String?   @db.Text
+  pixCopyPaste String?   @db.Text
+  pixExpiresAt DateTime?
 
-  paidAt     DateTime?
-  refundedAt DateTime?
-  failureReason String? @db.VarChar(300)
+  paidAt        DateTime?
+  refundedAt    DateTime?
+  failureReason String?   @db.VarChar(300)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -698,6 +709,72 @@ model PaymentWebhookEvent {
 }
 
 // ============================================================================
+//  NOTIFICACOES DE PEDIDO (WhatsApp)
+//
+//  Modulo apps/api/src/modules/notifications — provedor Evolution API,
+//  SEPARADO do modules/whatsapp (Meta Cloud API, dormente). Ver o README
+//  de cada modulo e DECISOES.md para o porque de dois caminhos.
+// ============================================================================
+
+/// Texto editavel pelo admin para cada evento, com placeholders
+/// ({nome}, {pedido}, {valor}, {status}, {telefone}). Um registro POR
+/// evento por loja — nao um catalogo fixo no codigo, para o dono poder
+/// mudar o texto sem deploy.
+model NotificationTemplate {
+  id      String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+
+  event NotificationEvent
+
+  /// Texto com placeholders. Ver MessageTemplateService.renderizar().
+  message String @db.Text
+
+  /// Desligado = evento nao manda mensagem nenhuma, sem apagar o texto
+  /// salvo (o dono pode religar depois sem redigitar).
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  /// Um template por evento por loja.
+  @@unique([storeId, event])
+  @@map("notification_template")
+}
+
+/// Historico de envio — idempotencia (nao mandar o mesmo evento duas
+/// vezes para o mesmo pedido) e diagnostico de falha.
+model NotificationLog {
+  id      String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  orderId String @db.Uuid
+
+  event    NotificationEvent
+  /// "evolution", "meta"... String solta e nao enum: um provedor novo
+  /// nao deveria exigir migration so para o log aceitar o nome dele.
+  provider String            @db.VarChar(40)
+
+  success      Boolean
+  /// Mensagem de erro do provedor, se falhou. NUNCA a API key nem o
+  /// telefone completo (ver mascararTelefone).
+  errorMessage String? @db.VarChar(500)
+
+  sentAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  /// Consulta de idempotencia: "ja mandei ORDER_RECEIVED com sucesso
+  /// para este pedido?". Indice, nao @@unique — uma falha seguida de
+  /// sucesso em nova tentativa gera duas linhas de proposito, para o
+  /// historico mostrar a tentativa que nao deu certo.
+  @@index([orderId, event])
+  @@index([storeId, sentAt])
+  @@map("notification_log")
+}
+
+// ============================================================================
 //  ADMINISTRACAO E SEGURANCA
 // ============================================================================
 
@@ -705,16 +782,16 @@ model AdminUser {
   id      String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
 
-  name  String @db.VarChar(120)
-  email String @db.VarChar(160)
+  name         String @db.VarChar(120)
+  email        String @db.VarChar(160)
   /// Hash Argon2id. Nunca a senha.
   passwordHash String @db.VarChar(255)
 
   role AdminRole @default(KITCHEN)
 
   /// Segredo TOTP, cifrado em repouso. Obrigatorio para OWNER e MANAGER.
-  totpSecret     String?  @db.VarChar(255)
-  totpEnabledAt  DateTime?
+  totpSecret    String?   @db.VarChar(255)
+  totpEnabledAt DateTime?
 
   isActive         Boolean   @default(true)
   failedLoginCount Int       @default(0)
@@ -743,9 +820,9 @@ model RefreshToken {
   /// Agrupa a cadeia de rotacoes. Detectado reuso, revoga-se a familia toda.
   familyId String @db.Uuid
 
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  replacedById String? @db.Uuid
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @db.Uuid
 
   userAgent String? @db.VarChar(300)
   ipAddress String? @db.VarChar(45)
@@ -799,13 +876,13 @@ model DailySalesRollup {
   /// Dia de referencia, normalizado a meia-noite.
   date DateTime @db.Date
 
-  ordersCount    Int @default(0)
-  canceledCount  Int @default(0)
-  grossCents     Int @default(0)
-  discountCents  Int @default(0)
+  ordersCount      Int @default(0)
+  canceledCount    Int @default(0)
+  grossCents       Int @default(0)
+  discountCents    Int @default(0)
   deliveryFeeCents Int @default(0)
-  netCents       Int @default(0)
-  avgTicketCents Int @default(0)
+  netCents         Int @default(0)
+  avgTicketCents   Int @default(0)
 
   deliveryCount Int @default(0)
   pickupCount   Int @default(0)
@@ -813,7 +890,7 @@ model DailySalesRollup {
   /// Contagem por forma de pagamento: { "PIX": 12, "CREDIT_CARD": 5 }
   byPaymentMethod Json?
   /// Pedidos por hora do dia: { "18": 3, "19": 11, ... }
-  byHour Json?
+  byHour          Json?
 
   updatedAt DateTime @updatedAt
 
