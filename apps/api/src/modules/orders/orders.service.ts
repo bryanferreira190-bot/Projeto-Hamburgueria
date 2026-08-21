@@ -744,17 +744,25 @@ export class OrdersService {
      * DELIVERED e COMPLETED usam o MESMO evento: um e entrega, outro e
      * retirada, mas "aproveite seu pedido" serve para os dois — nao ha
      * motivo para o admin configurar textos separados so por isso.
+     *
+     * READY dispara para os dois tipos (entrega e retirada) — e o
+     * momento em que quem retira precisa saber que ja pode vir buscar,
+     * e quem recebe em casa sabe que o proximo passo (saiu para
+     * entrega) esta perto. AWAITING_PICKUP nao tem evento proprio: o
+     * aviso de "pronto" ja cobre a espera.
      */
     const eventoDeNotificacao =
       nextStatus === OrderStatus.CONFIRMED && order.status === OrderStatus.PENDING_PAYMENT
         ? NotificationEvent.PAYMENT_APPROVED
         : nextStatus === OrderStatus.PREPARING
           ? NotificationEvent.PREPARING
-          : nextStatus === OrderStatus.OUT_FOR_DELIVERY
-            ? NotificationEvent.OUT_FOR_DELIVERY
-            : nextStatus === OrderStatus.DELIVERED || nextStatus === OrderStatus.COMPLETED
-              ? NotificationEvent.DELIVERED
-              : null;
+          : nextStatus === OrderStatus.READY
+            ? NotificationEvent.READY
+            : nextStatus === OrderStatus.OUT_FOR_DELIVERY
+              ? NotificationEvent.OUT_FOR_DELIVERY
+              : nextStatus === OrderStatus.DELIVERED || nextStatus === OrderStatus.COMPLETED
+                ? NotificationEvent.DELIVERED
+                : null;
 
     if (eventoDeNotificacao) {
       void this.messaging

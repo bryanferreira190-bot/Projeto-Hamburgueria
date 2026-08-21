@@ -105,8 +105,9 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
  *
  * So os momentos que o cliente realmente precisa saber sem perguntar —
  * nao e todo status da maquina de estados (ver order-status.ts) que
- * gera aviso. READY e AWAITING_PICKUP, por exemplo, nao tem mensagem
- * propria: quem retira no balcao nao precisa de WhatsApp para isso.
+ * gera aviso. AWAITING_PICKUP nao tem mensagem propria: READY ja avisa
+ * "pode vir buscar", e criar mais um evento so para "ainda esta
+ * esperando" seria repetir a mesma informacao.
  *
  * DELIVERED cobre tanto entrega quanto retirada concluida (status
  * COMPLETED) — o texto "aproveite seu pedido" serve para os dois, e
@@ -123,6 +124,7 @@ export const NotificationEvent = {
   ORDER_RECEIVED: 'ORDER_RECEIVED',
   PAYMENT_APPROVED: 'PAYMENT_APPROVED',
   PREPARING: 'PREPARING',
+  READY: 'READY',
   OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
   DELIVERED: 'DELIVERED',
   CASHBACK_REMINDER: 'CASHBACK_REMINDER',
@@ -133,6 +135,7 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
   ORDER_RECEIVED: 'Pedido recebido',
   PAYMENT_APPROVED: 'Pagamento aprovado',
   PREPARING: 'Em preparo',
+  READY: 'Pronto',
   OUT_FOR_DELIVERY: 'Saiu para entrega',
   DELIVERED: 'Entregue/concluido',
   CASHBACK_REMINDER: 'Lembrete de cashback (1 dia depois)',

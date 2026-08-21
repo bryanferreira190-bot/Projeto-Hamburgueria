@@ -26,6 +26,8 @@ const TEXTO_PADRAO: Record<TNotificationEvent, string> = {
     '✅ Pagamento aprovado!\n\nOlá, {nome}!\n\nO pagamento do pedido #{pedido} foi confirmado.\n\nJá vamos começar a preparar seu pedido. 🍔',
   PREPARING:
     '👨‍🍳 Seu pedido está sendo preparado!\n\nPedido #{pedido}\n\nEstamos preparando tudo com cuidado. 🍔',
+  READY:
+    '🎉 Seu pedido está pronto!\n\nPedido #{pedido}\n\nJá pode ficar de olho — não vai demorar! 🍔',
   OUT_FOR_DELIVERY:
     '🛵 Seu pedido saiu para entrega!\n\nPedido #{pedido}\n\nFique atento, seu lanche está a caminho. 🍔',
   DELIVERED:

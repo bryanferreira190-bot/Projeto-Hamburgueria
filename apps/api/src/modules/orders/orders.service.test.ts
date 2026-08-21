@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { ConflictException } from '@nestjs/common';
-import { OrderStatus, OrderType, PaymentMethod } from '@adventure/shared';
+import { NotificationEvent, OrderStatus, OrderType, PaymentMethod } from '@adventure/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { OrdersService } from './orders.service';
 import type { PrismaService } from '../../infra/prisma/prisma.service';
@@ -266,6 +266,49 @@ describe('OrdersService.updateStatus — compare-and-swap', () => {
     await service.updateStatus('o1', OrderStatus.CANCELED, { reason: 'Cliente desistiu' });
 
     expect(cashback.anularCreditoDoPedido).toHaveBeenCalledWith(tx, 'o1');
+  });
+
+  it.each([
+    [OrderStatus.CONFIRMED, OrderStatus.PREPARING, NotificationEvent.PREPARING],
+    [OrderStatus.PREPARING, OrderStatus.READY, NotificationEvent.READY],
+    [OrderStatus.READY, OrderStatus.OUT_FOR_DELIVERY, NotificationEvent.OUT_FOR_DELIVERY],
+  ])('transicao de %s para %s dispara o evento de notificacao %s', async (statusAtual, proximoStatus, evento) => {
+    const { service, messaging } = makeService({
+      order: { id: 'o1', number: 'A001', status: statusAtual, type: OrderType.DELIVERY, couponId: null },
+    });
+
+    await service.updateStatus('o1', proximoStatus);
+
+    expect(messaging.notificar).toHaveBeenCalledWith(evento, expect.objectContaining({ orderId: 'o1' }));
+  });
+
+  it.each([
+    [OrderStatus.DELIVERED, OrderType.DELIVERY, OrderStatus.OUT_FOR_DELIVERY],
+    [OrderStatus.COMPLETED, OrderType.PICKUP, OrderStatus.AWAITING_PICKUP],
+  ])(
+    'transicao para %s (tipo %s) dispara o MESMO evento DELIVERED',
+    async (proximoStatus, tipo, statusAtual) => {
+      const { service, messaging } = makeService({
+        order: { id: 'o1', number: 'A001', status: statusAtual, type: tipo, couponId: null },
+      });
+
+      await service.updateStatus('o1', proximoStatus);
+
+      expect(messaging.notificar).toHaveBeenCalledWith(
+        NotificationEvent.DELIVERED,
+        expect.objectContaining({ orderId: 'o1' }),
+      );
+    },
+  );
+
+  it('AWAITING_PICKUP nao dispara notificacao propria — READY ja avisou', async () => {
+    const { service, messaging } = makeService({
+      order: { id: 'o1', number: 'A001', status: OrderStatus.READY, type: OrderType.PICKUP, couponId: null },
+    });
+
+    await service.updateStatus('o1', OrderStatus.AWAITING_PICKUP);
+
+    expect(messaging.notificar).not.toHaveBeenCalled();
   });
 
   it('recusa transicao invalida (ex.: pedido ja entregue) sem tocar no banco', async () => {

@@ -5,6 +5,34 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-21 — WhatsApp: pedido "Pronto" (READY) ganha notificação própria
+
+Reportado pelo dono: pedido recebido, em preparo, saiu para entrega e
+entregue mandavam mensagem automática — só "Pronto" não mandava nada.
+Não era bug de execução: a decisão original (ver entrada de
+2026-08-20 sobre a integração Evolution) deliberadamente não mapeava
+`READY`/`AWAITING_PICKUP` a nenhum evento, com o raciocínio "quem
+retira no balcão não precisa de WhatsApp para isso". Na prática esse
+raciocínio só valia para quem RETIRA — para entrega, o cliente também
+esperava saber que o pedido tinha ficado pronto, e ninguém tinha
+percebido a lacuna até testar o fluxo fim a fim.
+
+Corrigido adicionando um evento `READY` (mesmo nome do status,
+seguindo o padrão já usado por `PREPARING`/`OUT_FOR_DELIVERY`) —
+migration aditiva de uma linha (`ALTER TYPE ... ADD VALUE`), igual às
+duas anteriores. `AWAITING_PICKUP` continua sem evento próprio: agora
+que `READY` avisa "pronto" para os dois tipos de pedido, um evento a
+mais só para "retirada ainda esperando" repetiria a mesma informação.
+
+Esse trecho de `OrdersService.updateStatus` (o mapeamento status →
+evento de notificação) não tinha nenhum teste direto até aqui —
+aproveitado para cobrir as transições PREPARING/READY/OUT_FOR_DELIVERY,
+os dois casos que caem em DELIVERED (entrega e retirada), e o caso
+AWAITING_PICKUP sem notificação, para uma lacuna assim não repetir sem
+ninguém perceber de novo.
+
+---
+
 ## 2026-08-20 — Lembrete diário de cashback: cron, não fila, reaproveitando NotificationLog
 
 Novo evento `CASHBACK_REMINDER`: uma vez por dia, às 11h no fuso da

@@ -38,8 +38,8 @@ evento e logado como simulado.
 
 ## Eventos e templates
 
-6 eventos. Os 5 primeiros sao mapeados aos status ja existentes de
-`Order` (nenhum status novo foi criado); o 6º e disparado por um job
+7 eventos. Os 6 primeiros sao mapeados aos status ja existentes de
+`Order` (nenhum status novo foi criado); o 7º e disparado por um job
 diario, nao por mudanca de status:
 
 | Evento (`NotificationEvent`) | Disparado quando |
@@ -47,12 +47,14 @@ diario, nao por mudanca de status:
 | `ORDER_RECEIVED` | Pedido criado ja como `CONFIRMED` (pagamento offline: dinheiro/cartao na entrega) |
 | `PAYMENT_APPROVED` | Pedido sai de `PENDING_PAYMENT` para `CONFIRMED` (cartao online ou PIX aprovado, inclusive via webhook do Mercado Pago) |
 | `PREPARING` | Pedido entra em `PREPARING` |
+| `READY` | Pedido entra em `READY` (entrega e retirada) |
 | `OUT_FOR_DELIVERY` | Pedido entra em `OUT_FOR_DELIVERY` |
 | `DELIVERED` | Pedido entra em `DELIVERED` ou `COMPLETED` (cobre tanto entrega quanto retirada no balcao concluida) |
 | `CASHBACK_REMINDER` | Uma vez por dia, as 11h (`America/Sao_Paulo`), para pedidos de ONTEM com cashback disponivel — ver `cashback-reminder.job.ts` |
 
-`READY`/`AWAITING_PICKUP` nao tem notificacao propria — o cliente ja foi
-avisado em `PREPARING`, e o aviso final acontece em `DELIVERED`/`COMPLETED`.
+`AWAITING_PICKUP` nao tem evento proprio: `READY` ja avisa que o
+pedido esta pronto (para os dois tipos), e "ainda esperando" nao traz
+informacao nova.
 
 Cada evento tem um `NotificationTemplate` por loja (`storeId + event`),
 com texto padrao ja cadastrado na primeira leitura/listagem. O admin edita
@@ -126,11 +128,11 @@ saldo de cashback disponivel. Escolhas deliberadas:
    `POST /notifications/test` (auth OWNER, limite de 5 por minuto) com
    `{ "phone": "11970706978", "message": "teste" }`.
 3. **Fluxo real**: criar um pedido com pagamento offline → deve chegar
-   `ORDER_RECEIVED`. Avancar o status pelo admin (`PREPARING`,
+   `ORDER_RECEIVED`. Avancar o status pelo admin (`PREPARING`, `READY`,
    `OUT_FOR_DELIVERY`, `DELIVERED`) → cada transicao dispara o evento
    correspondente. Aprovar um pagamento PIX/cartao pendente → dispara
    `PAYMENT_APPROVED`.
-4. **Templates**: `GET /notifications/templates` lista os 5 (cria com
+4. **Templates**: `GET /notifications/templates` lista os 7 (cria com
    texto padrao quem faltar); `PUT /notifications/templates/:event` com
    `{ "message": "...", "isActive": false }` edita ou desliga um evento.
 
