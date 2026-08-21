@@ -89,6 +89,12 @@ export class OrdersService {
 
     const deliveryFeeCents = quote?.feeCents ?? 0;
 
+    /* Capturado dentro do callback abaixo (que pode rodar mais de uma vez
+       em caso de colisao de numero — ver criarPedidoComRetentativa) so
+       para ficar disponivel aqui fora, na notificacao de ORDER_RECEIVED,
+       sem precisar reconsultar o banco depois que a transacao ja commitou. */
+    let itensDoPedido: { productName: string; quantity: number }[] = [];
+
     const order = await this.criarPedidoComRetentativa(store, idempotencyKey, async (tx) => {
       const priced = await this.pricing.price(tx, {
         storeId: store.id,
@@ -96,6 +102,10 @@ export class OrdersService {
         deliveryFeeCents,
         couponCode: input.couponCode,
       });
+      itensDoPedido = priced.items.map((item) => ({
+        productName: item.productName,
+        quantity: item.quantity,
+      }));
 
       const minOrder = quote?.minOrderCents ?? store.minOrderCents;
       if (priced.subtotalCents < minOrder) {
@@ -267,6 +277,7 @@ export class OrdersService {
           phone: input.customer.phone,
           totalCents: order.totalCents,
           status: order.status,
+          items: itensDoPedido,
         })
         .catch((error) => this.logger.error('Falha ao notificar pedido recebido', error as Error));
     }
@@ -608,6 +619,7 @@ export class OrdersService {
         couponId: true,
         totalCents: true,
         customer: { select: { name: true, phone: true } },
+        items: { select: { productName: true, quantity: true } },
       },
     });
 
@@ -774,6 +786,7 @@ export class OrdersService {
           phone: order.customer?.phone ?? null,
           totalCents: order.totalCents,
           status: nextStatus,
+          items: order.items,
         })
         .catch((error) =>
           this.logger.error(

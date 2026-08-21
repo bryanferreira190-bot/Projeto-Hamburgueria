@@ -11,6 +11,8 @@ export interface PlaceholderContext {
   telefone: string;
   /** Saldo de cashback do cliente, ja em BRL (ex.: "R$ 12,50"). */
   cashback: string;
+  /** Itens do pedido, um por linha (ex.: "2× Bacon Burguer"). Vazio se nao houver pedido por tras do evento. */
+  itens: string;
 }
 
 /**
@@ -21,11 +23,11 @@ export interface PlaceholderContext {
  */
 const TEXTO_PADRAO: Record<TNotificationEvent, string> = {
   ORDER_RECEIVED:
-    '🍔 Pedido recebido!\n\nOlá, {nome}!\n\nRecebemos seu pedido #{pedido}.\n\nTotal: {valor}\n\n💰 Seu saldo de cashback: {cashback}\n\nEm breve começaremos o preparo. 😊',
+    '🍔 Pedido recebido!\n\nOlá, {nome}!\n\nRecebemos seu pedido #{pedido}.\n\n{itens}\n\nTotal: {valor}\n\n💰 Seu saldo de cashback: {cashback}\n\nEm breve começaremos o preparo. 😊',
   PAYMENT_APPROVED:
     '✅ Pagamento aprovado!\n\nOlá, {nome}!\n\nO pagamento do pedido #{pedido} foi confirmado.\n\nJá vamos começar a preparar seu pedido. 🍔',
   PREPARING:
-    '👨‍🍳 Seu pedido está sendo preparado!\n\nPedido #{pedido}\n\nEstamos preparando tudo com cuidado. 🍔',
+    '👨‍🍳 Seu pedido está sendo preparado!\n\nPedido #{pedido}\n\n{itens}\n\nEstamos preparando tudo com cuidado. 🍔',
   READY:
     '🎉 Seu pedido está pronto!\n\nPedido #{pedido}\n\nJá pode ficar de olho — não vai demorar! 🍔',
   OUT_FOR_DELIVERY:
@@ -149,6 +151,7 @@ export class MessageTemplateService {
       '{status}': contexto.status,
       '{telefone}': contexto.telefone,
       '{cashback}': contexto.cashback,
+      '{itens}': contexto.itens,
     };
 
     return Object.entries(substituicoes).reduce(

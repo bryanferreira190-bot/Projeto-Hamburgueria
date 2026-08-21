@@ -70,6 +70,7 @@ regex):
 | `{status}` | Rotulo do status atual em portugues |
 | `{telefone}` | Telefone do cliente formatado (ex.: `(11) 97070-6978`) |
 | `{cashback}` | Saldo de cashback do cliente, ja em BRL (ex.: `R$ 12,50`, ou `R$ 0,00`) — consultado NA HORA do envio, nunca guardado |
+| `{itens}` | Itens do pedido, um por linha (ex.: `1× Bacon Burguer`). So disponivel em eventos com um pedido de verdade por tras — vazio em `CASHBACK_REMINDER` e no disparo manual |
 
 ## Lembrete diario de cashback (`CashbackReminderJob`)
 

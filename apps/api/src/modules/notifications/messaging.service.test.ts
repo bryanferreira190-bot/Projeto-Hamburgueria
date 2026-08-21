@@ -136,6 +136,31 @@ describe('MessagingService.notificar', () => {
     expect(contexto.cashback).toBe(formatBRL(1250));
   });
 
+  it('pedido com itens: o placeholder {itens} vira uma linha por item, "quantidade× nome"', async () => {
+    const { service, templates } = makeService();
+
+    await service.notificar(NotificationEvent.ORDER_RECEIVED, {
+      ...CONTEXTO,
+      items: [
+        { productName: 'Bacon Burguer', quantity: 1 },
+        { productName: 'Classic Burguer', quantity: 1 },
+        { productName: 'Refrigerante', quantity: 2 },
+      ],
+    });
+
+    const [, contexto] = (templates.renderizar as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(contexto.itens).toBe('1× Bacon Burguer\n1× Classic Burguer\n2× Refrigerante');
+  });
+
+  it('pedido sem items no contexto (evento sem pedido por tras): placeholder {itens} vem vazio', async () => {
+    const { service, templates } = makeService();
+
+    await service.notificar(NotificationEvent.ORDER_RECEIVED, CONTEXTO);
+
+    const [, contexto] = (templates.renderizar as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(contexto.itens).toBe('');
+  });
+
   it('cliente sem cashback: placeholder {cashback} vem R$ 0,00', async () => {
     const { service, templates } = makeService({ cashbackSaldoCents: 0 });
 

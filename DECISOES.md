@@ -5,6 +5,35 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-21 — WhatsApp: lista de itens nas mensagens de "recebido" e "em preparo"
+
+Pedido do dono: mostrar o que foi comprado (ex.: "1× Bacon Burguer")
+nas mensagens de `ORDER_RECEIVED` e `PREPARING`, sem tocar nas outras
+já prontas.
+
+Novo placeholder `{itens}` — genérico, disponível para qualquer
+evento (mesmo padrão de `{cashback}`), mas só populado de fato pelos
+dois pontos que já tem os itens do pedido em mãos
+(`OrdersService.create()`/`updateStatus()`); os outros dois disparos
+(`PaymentsService`, `CashbackReminderJob`) continuam sem mudança —
+`items` é opcional em `OrderNotificationContext`, então quem não
+passa nada simplesmente recebe `{itens}` vazio se o texto o usar.
+
+`OrdersService.create()` precisou capturar os itens já precificados
+(`priced.items`) numa variável de escopo externo ao callback da
+transação, porque o objeto que `tx.order.create()` devolve não inclui
+a relação `items` criada junto (Prisma não devolve relação criada via
+nested `create` sem `include` explícito) — mais simples que reconsultar
+o pedido depois do commit. `updateStatus()` só precisou estender o
+`select` do `findUnique` já existente.
+
+Mesma ressalva de sempre: quem já tinha os templates de "Pedido
+recebido"/"Pedido em preparo" salvos no banco com o texto antigo
+precisa clicar "Restaurar padrão" (ou editar a mão) para `{itens}`
+aparecer — não é migration de dado, é opção de produto.
+
+---
+
 ## 2026-08-21 — WhatsApp: pedido "Pronto" (READY) ganha notificação própria
 
 Reportado pelo dono: pedido recebido, em preparo, saiu para entrega e

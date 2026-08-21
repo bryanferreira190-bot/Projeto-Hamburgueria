@@ -151,5 +151,6 @@ export const NOTIFICATION_PLACEHOLDERS: Record<string, string> = {
   '{valor}': 'Total do pedido formatado, ex.: R$ 42,00',
   '{status}': 'Status atual por extenso, ex.: Em preparo',
   '{telefone}': 'Telefone do proprio cliente, formatado',
+  '{itens}': 'Itens do pedido, um por linha (ex.: "2× Bacon Burguer"). Vazio em eventos sem pedido por tras (lembrete de cashback, disparo manual)',
   '{cashback}': 'Saldo de cashback do cliente, formatado (ex.: R$ 12,50, ou R$ 0,00 sem saldo)',
 };

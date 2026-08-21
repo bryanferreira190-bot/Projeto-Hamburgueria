@@ -3,6 +3,7 @@ import { ConflictException } from '@nestjs/common';
 import { NotificationEvent, OrderStatus, OrderType, PaymentMethod } from '@adventure/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { OrdersService } from './orders.service';
+import type { PricedItem } from './order-pricing.service';
 import type { PrismaService } from '../../infra/prisma/prisma.service';
 import type { OrderPricingService } from './order-pricing.service';
 import type { StoreService } from '../store/store.service';
@@ -79,11 +80,25 @@ function fullOrder(overrides: Record<string, unknown>) {
   };
 }
 
+/** Item precificado minimo, so com o que o teste de {itens} precisa conferir. */
+function criarItemPrecificado(productName: string): PricedItem {
+  return {
+    productId: 'p1',
+    productName,
+    quantity: 1,
+    unitPriceCents: 1500,
+    optionsPriceCents: 0,
+    totalCents: 1500,
+    options: [],
+  };
+}
+
 function makeService(opts: {
   tx?: ReturnType<typeof makeTx>;
   order?: Record<string, unknown> | null;
   transactionImpl?: (fn: (tx: unknown) => unknown) => unknown;
   orderFindFirst?: ReturnType<typeof vi.fn>;
+  pricedItems?: PricedItem[];
 }) {
   const tx = opts.tx ?? makeTx();
 
@@ -107,7 +122,7 @@ function makeService(opts: {
 
   const pricing = {
     price: vi.fn().mockResolvedValue({
-      items: [],
+      items: opts.pricedItems ?? [],
       subtotalCents: 3000,
       deliveryFeeCents: 0,
       discountCents: 0,
@@ -311,6 +326,50 @@ describe('OrdersService.updateStatus — compare-and-swap', () => {
     expect(messaging.notificar).not.toHaveBeenCalled();
   });
 
+  it('entrar em preparo notifica PREPARING com os itens do pedido', async () => {
+    /* items completo o bastante para nao quebrar toOrderDto() tambem —
+       findById() (chamado no final de updateStatus) reusa o mesmo mock
+       de prisma.order.findUnique. */
+    const itemDoPedido = (productName: string) => ({
+      productName,
+      quantity: 1,
+      unitPriceCents: 1500,
+      totalCents: 1500,
+      notes: null,
+      options: [],
+    });
+
+    const { service, messaging } = makeService({
+      order: {
+        id: 'o1',
+        number: 'A001',
+        status: OrderStatus.CONFIRMED,
+        type: OrderType.PICKUP,
+        couponId: null,
+        items: [
+          itemDoPedido('Bacon Burguer'),
+          itemDoPedido('Classic Burguer'),
+          itemDoPedido('Refrigerante'),
+        ],
+      },
+    });
+
+    await service.updateStatus('o1', OrderStatus.PREPARING);
+
+    const [evento, contexto] = (messaging.notificar as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(evento).toBe(NotificationEvent.PREPARING);
+    expect(
+      (contexto.items as { productName: string; quantity: number }[]).map((item) => ({
+        productName: item.productName,
+        quantity: item.quantity,
+      })),
+    ).toEqual([
+      { productName: 'Bacon Burguer', quantity: 1 },
+      { productName: 'Classic Burguer', quantity: 1 },
+      { productName: 'Refrigerante', quantity: 1 },
+    ]);
+  });
+
   it('recusa transicao invalida (ex.: pedido ja entregue) sem tocar no banco', async () => {
     const tx = makeTx();
     const { service } = makeService({
@@ -398,6 +457,45 @@ describe('OrdersService.create — idempotencia e colisao concorrente', () => {
     /* So tentou UMA vez a transacao — colisao de idempotencyKey nao deve
        gerar retentativa, so localizar e devolver o que ja existe. */
     expect(transactionImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('pedido confirmado na hora (pagamento offline) notifica ORDER_RECEIVED com os itens precificados', async () => {
+    const tx = makeTx();
+    tx.order.create = vi.fn().mockResolvedValue({
+      id: 'o4',
+      number: 'A030',
+      totalCents: 3000,
+      status: OrderStatus.CONFIRMED,
+      storeId: STORE.id,
+    });
+    const transactionImpl = vi.fn(async (fn: (tx: unknown) => unknown) => fn(tx));
+
+    const { service, prisma, messaging } = makeService({
+      tx,
+      order: null,
+      transactionImpl,
+      pricedItems: [
+        criarItemPrecificado('Bacon Burguer'),
+        criarItemPrecificado('Classic Burguer'),
+        criarItemPrecificado('Refrigerante'),
+      ],
+    });
+    (prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(
+      fullOrder({ id: 'o4', number: 'A030', totalCents: 3000, status: OrderStatus.CONFIRMED }),
+    );
+
+    await service.create(PEDIDO_BASE as never, 'chave-itens');
+
+    expect(messaging.notificar).toHaveBeenCalledWith(
+      NotificationEvent.ORDER_RECEIVED,
+      expect.objectContaining({
+        items: [
+          { productName: 'Bacon Burguer', quantity: 1 },
+          { productName: 'Classic Burguer', quantity: 1 },
+          { productName: 'Refrigerante', quantity: 1 },
+        ],
+      }),
+    );
   });
 
   it('recusa pedido quando a loja esta fechada, sem tentar criar nada', async () => {

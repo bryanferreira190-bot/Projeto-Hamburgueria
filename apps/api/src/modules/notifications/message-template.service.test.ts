@@ -117,7 +117,7 @@ describe('MessageTemplateService.renderizar', () => {
     const { service } = makeService();
 
     const texto = service.renderizar(
-      'Ola {nome}, pedido #{pedido} de {valor} esta {status}. Tel: {telefone}. Cashback: {cashback}',
+      'Ola {nome}, pedido #{pedido} de {valor} esta {status}. Tel: {telefone}. Cashback: {cashback}. Itens: {itens}',
       {
         nome: 'Joao',
         pedido: 'A001',
@@ -125,11 +125,12 @@ describe('MessageTemplateService.renderizar', () => {
         status: 'Em preparo',
         telefone: '(11) 97070-6978',
         cashback: 'R$ 12,50',
+        itens: '2× Bacon Burguer',
       },
     );
 
     expect(texto).toBe(
-      'Ola Joao, pedido #A001 de R$ 30,00 esta Em preparo. Tel: (11) 97070-6978. Cashback: R$ 12,50',
+      'Ola Joao, pedido #A001 de R$ 30,00 esta Em preparo. Tel: (11) 97070-6978. Cashback: R$ 12,50. Itens: 2× Bacon Burguer',
     );
   });
 
@@ -143,6 +144,7 @@ describe('MessageTemplateService.renderizar', () => {
       status: '',
       telefone: '',
       cashback: '',
+      itens: '',
     });
 
     expect(texto).toBe('Ana, Ana!');
@@ -158,6 +160,7 @@ describe('MessageTemplateService.renderizar', () => {
       status: '',
       telefone: '',
       cashback: '',
+      itens: '',
     });
 
     expect(texto).toBe('cupom {cupom} para Ana');

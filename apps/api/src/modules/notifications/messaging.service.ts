@@ -24,6 +24,13 @@ export interface OrderNotificationContext {
   phone: string | null;
   totalCents: number;
   status: OrderStatus;
+  /**
+   * Itens do pedido, para o placeholder `{itens}`. Opcional: eventos
+   * que nao tem um pedido de verdade por tras (CASHBACK_REMINDER,
+   * disparo em massa) simplesmente nao passam isto, e o placeholder
+   * vira vazio se o texto o usar.
+   */
+  items?: { productName: string; quantity: number }[];
 }
 
 export interface NotificationResult {
@@ -56,6 +63,15 @@ function primeiroNome(nome: string | null): string {
 function formatarTelefone(digitos: string): string {
   if (digitos.length !== 11) return digitos;
   return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
+}
+
+/**
+ * [{productName:"Bacon Burguer",quantity:2}] -> "2× Bacon Burguer".
+ * Mesmo formato ja usado nas telas do painel e do storefront (ver
+ * OrdersPage/CheckoutPage) — so para o placeholder {itens}.
+ */
+function formatarItens(items: { productName: string; quantity: number }[]): string {
+  return items.map((item) => `${item.quantity}× ${item.productName}`).join('\n');
 }
 
 /**
@@ -191,6 +207,7 @@ export class MessagingService {
         status: '',
         telefone: formatarTelefone(destinatario.phone),
         cashback: formatBRL(destinatario.cashbackCents),
+        itens: '',
       });
 
       if (!this.provider) {
@@ -282,6 +299,7 @@ export class MessagingService {
       status: ORDER_STATUS_LABELS[contexto.status],
       telefone: formatarTelefone(contexto.phone),
       cashback: formatBRL(saldoCashbackCents),
+      itens: formatarItens(contexto.items ?? []),
     });
 
     return this.enviar(event, contexto, mensagem);
