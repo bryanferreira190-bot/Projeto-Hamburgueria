@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RequireRole } from '../auth/decorators';
+import { CashbackAdminService } from '../cashback/cashback-admin.service';
 import { MessageTemplateService } from './message-template.service';
 import { MessagingService } from './messaging.service';
 
@@ -13,6 +14,11 @@ const envioDeTesteSchema = z.object({
   message: z.string().trim().min(1).max(1000),
 });
 type EnvioDeTeste = z.infer<typeof envioDeTesteSchema>;
+
+const dispararCashbackSchema = z.object({
+  message: z.string().trim().min(1).max(1000),
+});
+type DispararCashbackInput = z.infer<typeof dispararCashbackSchema>;
 
 const atualizarTemplateSchema = z.object({
   message: z.string().trim().min(1).max(1000).optional(),
@@ -38,6 +44,7 @@ export class NotificationsController {
     private readonly messaging: MessagingService,
     private readonly templates: MessageTemplateService,
     private readonly prisma: PrismaService,
+    private readonly cashbackAdmin: CashbackAdminService,
   ) {}
 
   /**
@@ -97,5 +104,29 @@ export class NotificationsController {
     const store = await this.prisma.store.findFirst({ select: { id: true } });
     if (!store) throw new NotFoundException('Loja nao configurada');
     return this.templates.restaurarPadrao(store.id, event);
+  }
+
+  /**
+   * Disparo manual em massa — botao "Disparar mensagem" na aba
+   * Cashback (admin). Manda AGORA, para todo cliente com saldo AGORA
+   * (`CashbackAdminService.listarClientesComSaldo()`, a mesma lista de
+   * `GET /admin/cashback`). Throttle baixo so contra duplo-clique — a
+   * frequencia de uso e uma decisao do admin, avisada na tela, nao
+   * imposta aqui.
+   */
+  @RequireRole(AdminRole.OWNER)
+  @Throttle({ default: { limit: 2, ttl: 60_000 } })
+  @Post('cashback-blast')
+  async dispararCashback(@Body(new ZodValidationPipe(dispararCashbackSchema)) corpo: DispararCashbackInput) {
+    const resumo = await this.cashbackAdmin.listarClientesComSaldo();
+
+    return this.messaging.enviarEmMassa(
+      corpo.message,
+      resumo.clientes.map((cliente) => ({
+        phone: cliente.phone,
+        nome: cliente.name,
+        cashbackCents: cliente.saldoCents,
+      })),
+    );
   }
 }

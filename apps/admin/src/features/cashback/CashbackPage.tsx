@@ -1,15 +1,24 @@
-import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import { api } from '../../lib/api';
-import { Button, Card, Input, Spinner, Vazio } from '../../components/ui';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { AdminRole, NotificationEvent, hasRoleLevel } from '@adventure/shared';
+import { api, ApiError, type ResultadoEmMassa } from '../../lib/api';
+import { Button, Card, Input, Spinner, Textarea, Vazio } from '../../components/ui';
 import { cx } from '../../lib/cx';
+import { useAuth } from '../../lib/auth';
 import { formatarTelefone, linkDoWhatsApp } from '../../lib/telefone';
 
 /** Quantos dias antes do vencimento a linha ja aparece em alerta. */
 const DIAS_DE_ALERTA = 3;
 
 export function CashbackPage() {
+  const { admin } = useAuth();
   const [busca, setBusca] = useState('');
+  const [mostrarDisparo, setMostrarDisparo] = useState(false);
+
+  /* Disparo em massa manda pra todo mundo com saldo de uma vez —
+     mesmo nivel de acesso das outras acoes de WhatsApp (teste, editar
+     template), so OWNER. */
+  const isOwner = admin ? hasRoleLevel(admin.role, AdminRole.OWNER) : false;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['cashback'],
@@ -55,13 +64,27 @@ export function CashbackPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="titulo-display text-2xl">Cashback</h1>
 
-        <Input
-          value={busca}
-          onChange={(event) => setBusca(event.target.value)}
-          placeholder="Buscar por nome ou telefone…"
-          className="max-w-xs"
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            value={busca}
+            onChange={(event) => setBusca(event.target.value)}
+            placeholder="Buscar por nome ou telefone…"
+            className="max-w-xs"
+          />
+          {isOwner && data.clientesComSaldo > 0 && (
+            <Button variant="contorno" size="sm" onClick={() => setMostrarDisparo(true)}>
+              📣 Disparar mensagem
+            </Button>
+          )}
+        </div>
       </header>
+
+      {mostrarDisparo && (
+        <DispararCashbackModal
+          totalClientes={data.clientesComSaldo}
+          onFechar={() => setMostrarDisparo(false)}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Indicador
@@ -191,5 +214,148 @@ function Vencimento({ iso }: { iso: string | null }) {
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * Disparo manual do MESMO lembrete que o job diario manda sozinho no
+ * dia seguinte ao pedido (ver CashbackReminderJob no backend) — so que
+ * na hora que o dono quiser, para todo cliente com saldo AGORA, com
+ * previa editavel antes de confirmar.
+ */
+function DispararCashbackModal({
+  totalClientes,
+  onFechar,
+}: {
+  totalClientes: number;
+  onFechar: () => void;
+}) {
+  const [texto, setTexto] = useState<string | null>(null);
+
+  const { data: templates, isLoading: carregandoTemplate } = useQuery({
+    queryKey: ['notifications', 'templates'],
+    queryFn: api.notificationTemplates,
+  });
+
+  /* So preenche uma vez, quando o template chega — depois disso o
+     admin pode editar livremente sem o valor voltar a ser sobrescrito. */
+  useEffect(() => {
+    if (texto !== null || !templates) return;
+    const padrao = templates.find((template) => template.event === NotificationEvent.CASHBACK_REMINDER);
+    setTexto(padrao?.message ?? '');
+  }, [templates, texto]);
+
+  const disparar = useMutation({
+    mutationFn: () => api.dispararCashback((texto ?? '').trim()),
+  });
+
+  useEffect(() => {
+    function aoTeclar(evento: KeyboardEvent) {
+      if (evento.key === 'Escape') onFechar();
+    }
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [onFechar]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-5"
+      onClick={onFechar}
+    >
+      <div
+        role="dialog"
+        aria-label="Disparar mensagem de cashback"
+        onClick={(evento) => evento.stopPropagation()}
+        className="w-full max-w-lg rounded-t-2xl border border-borda bg-preto-2 p-5 sm:rounded-2xl"
+      >
+        <header className="mb-4">
+          <h2 className="titulo-display text-lg">Disparar lembrete de cashback</h2>
+          <p className="mt-1 text-xs text-cinza-2">
+            Manda a mensagem abaixo, agora, para os <strong>{totalClientes}</strong> cliente
+            {totalClientes === 1 ? '' : 's'} com saldo de cashback.
+          </p>
+        </header>
+
+        <div className="mb-4 rounded-xl border border-amarelo/40 bg-amarelo/8 px-3 py-2.5 text-xs text-amarelo">
+          ⚠️ Recomendado usar no máximo <strong>1 vez por dia</strong> — mandar de novo em seguida
+          reenvia para quem já recebeu.
+        </div>
+
+        {carregandoTemplate || texto === null ? (
+          <Spinner label="Carregando mensagem" />
+        ) : disparar.isSuccess ? (
+          <ResultadoDoDisparo resultado={disparar.data} onFechar={onFechar} />
+        ) : (
+          <>
+            <label className="mb-1.5 block text-xs font-bold text-cinza-2">
+              Mensagem (prévia editável)
+            </label>
+            <Textarea
+              autoFocus
+              rows={7}
+              value={texto}
+              onChange={(evento) => setTexto(evento.target.value)}
+              maxLength={1000}
+            />
+            <p className="mt-1.5 text-xs text-cinza-2">
+              Placeholders aceitos: <code>{'{nome}'}</code> e <code>{'{cashback}'}</code>.
+            </p>
+
+            {disparar.isError && (
+              <p className="mt-2 text-xs text-vermelho-2">
+                {disparar.error instanceof ApiError ? disparar.error.detail : 'Falha ao disparar.'}
+              </p>
+            )}
+
+            <div className="mt-5 flex gap-2">
+              <Button variant="contorno" full onClick={onFechar} disabled={disparar.isPending}>
+                Cancelar
+              </Button>
+              <Button
+                variant="amarelo"
+                full
+                disabled={!texto.trim() || disparar.isPending}
+                loading={disparar.isPending}
+                onClick={() => disparar.mutate()}
+              >
+                Enviar para {totalClientes}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ResultadoDoDisparo({
+  resultado,
+  onFechar,
+}: {
+  resultado: ResultadoEmMassa;
+  onFechar: () => void;
+}) {
+  return (
+    <div>
+      <div className="rounded-xl border border-verde/40 bg-verde/8 p-4 text-sm">
+        <p className="font-bold text-verde">
+          {resultado.enviados} de {resultado.total} mensagem{resultado.total === 1 ? '' : 's'} enviada
+          {resultado.enviados === 1 ? '' : 's'}.
+        </p>
+        {resultado.falhas > 0 && (
+          <p className="mt-1 text-cinza">{resultado.falhas} falharam (ver logs do servidor).</p>
+        )}
+        {resultado.simulados > 0 && (
+          <p className="mt-1 text-cinza">
+            {resultado.simulados} simulada{resultado.simulados === 1 ? '' : 's'} — envio automático
+            está desligado (nada foi enviado de verdade).
+          </p>
+        )}
+      </div>
+
+      <Button variant="contorno" full className="mt-5" onClick={onFechar}>
+        Fechar
+      </Button>
+    </div>
   );
 }

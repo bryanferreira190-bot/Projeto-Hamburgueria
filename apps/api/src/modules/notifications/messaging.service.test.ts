@@ -202,3 +202,63 @@ describe('MessagingService.enviarTeste', () => {
     expect(resultado).toEqual({ enviado: true, simulado: false });
   });
 });
+
+describe('MessagingService.enviarEmMassa', () => {
+  it('lista vazia: nao chama o provedor, devolve tudo zerado', async () => {
+    const { service, evolution } = makeService();
+
+    const resultado = await service.enviarEmMassa('Ola {nome}!', []);
+
+    expect(evolution.sendText).not.toHaveBeenCalled();
+    expect(resultado).toEqual({ total: 0, enviados: 0, simulados: 0, falhas: 0 });
+  });
+
+  it('WHATSAPP_PROVIDER=none: simula todo mundo, nunca chama o provedor nem grava log', async () => {
+    const { service, evolution, notificationLogCreate } = makeService({ provider: 'none' });
+
+    const resultado = await service.enviarEmMassa('Ola {nome}!', [
+      { phone: '11970706978', nome: 'Joao', cashbackCents: 1000 },
+      { phone: '11988887777', nome: 'Ana', cashbackCents: 500 },
+    ]);
+
+    expect(evolution.sendText).not.toHaveBeenCalled();
+    expect(notificationLogCreate).not.toHaveBeenCalled();
+    expect(resultado).toEqual({ total: 2, enviados: 0, simulados: 2, falhas: 0 });
+  });
+
+  it('renderiza {nome} e {cashback} por destinatario, com o telefone certo cada um', async () => {
+    const { service, templates, evolution } = makeService();
+
+    await service.enviarEmMassa('Ola {nome}, seu saldo e {cashback}', [
+      { phone: '11970706978', nome: 'Joao da Silva', cashbackCents: 1250 },
+      { phone: '11988887777', nome: null, cashbackCents: 0 },
+    ]);
+
+    const chamadas = (templates.renderizar as ReturnType<typeof vi.fn>).mock.calls;
+    expect(chamadas[0]![1]).toEqual(
+      expect.objectContaining({ nome: 'Joao', cashback: formatBRL(1250) }),
+    );
+    expect(chamadas[1]![1]).toEqual(
+      expect.objectContaining({ nome: 'Tudo bem', cashback: formatBRL(0) }),
+    );
+    expect(evolution.sendText).toHaveBeenNthCalledWith(1, '5511970706978', expect.any(String));
+    expect(evolution.sendText).toHaveBeenNthCalledWith(2, '5511988887777', expect.any(String));
+  });
+
+  it('falha no envio de um destinatario nao impede os seguintes, e conta certo', async () => {
+    const { service, evolution, notificationLogCreate } = makeService();
+    (evolution.sendText as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ success: false, error: 'HTTP 500' })
+      .mockResolvedValueOnce({ success: true, externalId: 'wamid-2' });
+
+    const resultado = await service.enviarEmMassa('Ola {nome}!', [
+      { phone: '11970706978', nome: 'Joao', cashbackCents: 1000 },
+      { phone: '11988887777', nome: 'Ana', cashbackCents: 500 },
+    ]);
+
+    expect(evolution.sendText).toHaveBeenCalledTimes(2);
+    expect(resultado).toEqual({ total: 2, enviados: 1, simulados: 0, falhas: 1 });
+    /* Disparo em massa nao tem pedido por tras — nunca grava NotificationLog. */
+    expect(notificationLogCreate).not.toHaveBeenCalled();
+  });
+});

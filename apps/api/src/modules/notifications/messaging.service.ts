@@ -32,6 +32,20 @@ export interface NotificationResult {
   motivo?: string;
 }
 
+/** Quem recebe um envio em massa — so o que o placeholder precisa, nada mais. */
+export interface DestinatarioEmMassa {
+  phone: string;
+  nome: string | null;
+  cashbackCents: number;
+}
+
+export interface ResultadoEmMassa {
+  total: number;
+  enviados: number;
+  simulados: number;
+  falhas: number;
+}
+
 /** "Joao da Silva" -> "Joao". Mesmo criterio do modulo whatsapp/. */
 function primeiroNome(nome: string | null): string {
   const primeiro = nome?.trim().split(/\s+/)[0];
@@ -144,6 +158,72 @@ export class MessagingService {
       simulado: false,
       ...(resultado.error ? { motivo: resultado.error } : {}),
     };
+  }
+
+  /**
+   * Disparo manual em massa — usado SOMENTE pelo botao "Disparar
+   * mensagem" da aba Cashback (admin), para todo cliente com saldo
+   * agora. Reaproveita `MessageTemplateService.renderizar()` para os
+   * placeholders `{nome}`/`{cashback}` (os demais — `{pedido}`,
+   * `{valor}`, `{status}`, `{telefone}` — nao fazem sentido aqui, ja que
+   * nao ha UM pedido por tras do disparo; ficam vazios se o texto os
+   * usar).
+   *
+   * NAO passa por NotificationLog nem por idempotencia: sao coisas
+   * pensadas para "uma vez por pedido", e aqui nao ha pedido, e sim uma
+   * lista de clientes decidida na hora pelo admin — quem decide a
+   * frequencia e a propria pessoa clicando o botao (por isso o aviso na
+   * tela, nao um bloqueio no backend).
+   */
+  async enviarEmMassa(
+    mensagemTemplate: string,
+    destinatarios: DestinatarioEmMassa[],
+  ): Promise<ResultadoEmMassa> {
+    let enviados = 0;
+    let simulados = 0;
+    let falhas = 0;
+
+    for (const destinatario of destinatarios) {
+      const mensagem = this.templates.renderizar(mensagemTemplate, {
+        nome: primeiroNome(destinatario.nome),
+        pedido: '',
+        valor: '',
+        status: '',
+        telefone: formatarTelefone(destinatario.phone),
+        cashback: formatBRL(destinatario.cashbackCents),
+      });
+
+      if (!this.provider) {
+        simulados += 1;
+        continue;
+      }
+
+      const telefoneInternacional = paraFormatoInternacional(destinatario.phone);
+      const resultadoDoEnvio = await this.provider.sendText(telefoneInternacional, mensagem);
+
+      if (resultadoDoEnvio.success) enviados += 1;
+      else falhas += 1;
+
+      this.logger.log(
+        JSON.stringify({
+          evento: resultadoDoEnvio.success ? 'notificacao.massa.enviada' : 'notificacao.massa.falhou',
+          destinatario: mascararTelefone(telefoneInternacional),
+          provedor: this.provider.nome,
+          ...(resultadoDoEnvio.success
+            ? { messageId: resultadoDoEnvio.externalId ?? null }
+            : { erro: resultadoDoEnvio.error }),
+        }),
+      );
+    }
+
+    this.logger.log(
+      `Disparo em massa de cashback: ${destinatarios.length} destinatario(s), ${enviados} enviado(s), ` +
+        `${falhas} falha(s)` +
+        (simulados > 0 ? `, ${simulados} simulado(s) (WHATSAPP_PROVIDER=none)` : '') +
+        '.',
+    );
+
+    return { total: destinatarios.length, enviados, simulados, falhas };
   }
 
   private async processar(

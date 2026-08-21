@@ -274,6 +274,13 @@ export interface NotificationResult {
   motivo?: string;
 }
 
+export interface ResultadoEmMassa {
+  total: number;
+  enviados: number;
+  simulados: number;
+  falhas: number;
+}
+
 /* ---------------- Chamadas ---------------- */
 
 export const api = {
@@ -393,6 +400,13 @@ export const api = {
     request<NotificationResult>('/notifications/test', {
       method: 'POST',
       body: { phone, message },
+    }),
+
+  /** Dispara o lembrete de cashback, agora, para todo cliente com saldo. */
+  dispararCashback: (message: string) =>
+    request<ResultadoEmMassa>('/notifications/cashback-blast', {
+      method: 'POST',
+      body: { message },
     }),
 };
 
