@@ -5,6 +5,48 @@ Formato: mais recente no topo.
 
 ---
 
+## 2026-08-20 — Lembrete diário de cashback: cron, não fila, reaproveitando NotificationLog
+
+Novo evento `CASHBACK_REMINDER`: uma vez por dia, às 11h no fuso da
+loja, avisa quem fez pedido **ontem** (qualquer status exceto
+`CANCELED`) do saldo de cashback disponível — pedido explícito do
+dono, para lembrar o cliente de voltar.
+
+**Cron (`@nestjs/schedule`), não Redis/BullMQ.** O projeto não tem fila
+hoje (ver decisão de 2026-08-19 sobre notificações de pedido) e o
+mesmo padrão já resolve dois jobs existentes
+(`CashbackExpiryJob`/`ExpiredPixJob`): uma consulta periódica no banco,
+nunca um `setTimeout`. Isso é o que garante sobreviver a
+restart/redeploy — a cada execução o job pergunta ao banco "quem se
+encaixa na janela de ontem, ainda sem confirmação de envio", nunca
+depende de um timer que morreria junto com o processo.
+
+**Idempotência reaproveitando `NotificationLog` — nenhuma coluna nova,
+nenhuma migration de tabela.** O pedido original sugeria uma coluna
+tipo `cashbackReminderSentAt`; investigando primeiro, `NotificationLog`
+(criado na feature de notificações via Evolution, 2026-08-20 mais
+abaixo) já é exatamente essa estrutura — histórico de envio por
+`(orderId, event, success)`, usado pelos outros 5 eventos. Bastou
+adicionar `CASHBACK_REMINDER` ao enum `NotificationEvent` (migration
+aditiva de uma linha, `ALTER TYPE ... ADD VALUE`) e chamar o mesmo
+`MessagingService.notificar()` que os outros eventos já chamam — job
+só decide QUEM é elegível, toda a idempotência/log/retry/template
+continua sendo a mesma peça de sempre.
+
+**Saldo zero: nunca manda mensagem, e nunca grava log de skip.** Pedido
+explícito do dono. Como a consulta já filtra por
+`createdAt` dentro de `[ontem, hoje)`, um pedido só é elegível NO DIA
+seguinte ao dele — no dia seguinte a esse, a janela de datas já não o
+inclui mais, então "não gravar nada" não vira "tentar de novo para
+sempre": o pedido simplesmente sai de escopo sozinho, sem precisar de
+nenhum estado extra para isso.
+
+**Saldo consultado no momento do envio, nunca no momento do pedido.**
+Reaproveita `CashbackService.saldoDoCliente(customerId)` — mesma
+consulta de sempre, sem duplicar nenhuma regra de cashback.
+
+---
+
 ## 2026-08-20 — 2FA do admin desativado temporariamente em produção, a pedido do dono
 
 `REQUIRE_ADMIN_2FA` deixou de ser forçado para `true` em produção

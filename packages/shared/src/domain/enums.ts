@@ -112,6 +112,12 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
  * COMPLETED) — o texto "aproveite seu pedido" serve para os dois, e
  * criar um evento a mais so para retirada seria distincao sem
  * diferenca pratica na mensagem.
+ *
+ * CASHBACK_REMINDER foge do padrao "dispara na mudanca de status": e
+ * disparado uma vez por dia por um job (CashbackReminderJob), nao por
+ * OrdersService/PaymentsService — mas usa a MESMA infraestrutura de
+ * template/idempotencia/log dos outros, so muda quem chama
+ * MessagingService.notificar().
  */
 export const NotificationEvent = {
   ORDER_RECEIVED: 'ORDER_RECEIVED',
@@ -119,6 +125,7 @@ export const NotificationEvent = {
   PREPARING: 'PREPARING',
   OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
   DELIVERED: 'DELIVERED',
+  CASHBACK_REMINDER: 'CASHBACK_REMINDER',
 } as const;
 export type NotificationEvent = (typeof NotificationEvent)[keyof typeof NotificationEvent];
 
@@ -128,6 +135,7 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
   PREPARING: 'Em preparo',
   OUT_FOR_DELIVERY: 'Saiu para entrega',
   DELIVERED: 'Entregue/concluido',
+  CASHBACK_REMINDER: 'Lembrete de cashback (1 dia depois)',
 };
 
 /**

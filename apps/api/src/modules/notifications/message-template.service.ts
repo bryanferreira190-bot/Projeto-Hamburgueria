@@ -30,6 +30,8 @@ const TEXTO_PADRAO: Record<TNotificationEvent, string> = {
     '🛵 Seu pedido saiu para entrega!\n\nPedido #{pedido}\n\nFique atento, seu lanche está a caminho. 🍔',
   DELIVERED:
     '✅ Pedido entregue!\n\nEsperamos que aproveite seu pedido #{pedido}. 🍔\n\nObrigado pela preferência!',
+  CASHBACK_REMINDER:
+    'Olá, {nome}! 👋\n\nPassando para lembrar que você possui:\n\n💰 *{cashback} de cashback*\n\ndisponível para utilizar nos seus próximos pedidos na Adventure Burguer. 🍔\n\nAproveite no seu próximo pedido! 😋',
 };
 
 /**

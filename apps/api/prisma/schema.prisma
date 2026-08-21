@@ -75,6 +75,11 @@ enum NotificationEvent {
   PREPARING
   OUT_FOR_DELIVERY
   DELIVERED
+  /// Nao dispara por mudanca de status — roda uma vez por dia
+  /// (CashbackReminderJob) para pedidos do dia anterior. Ver
+  /// NotificationLog: mesma tabela, mesma idempotencia, so muda quem
+  /// dispara o evento.
+  CASHBACK_REMINDER
 }
 
 // ============================================================================

@@ -38,8 +38,9 @@ evento e logado como simulado.
 
 ## Eventos e templates
 
-5 eventos, mapeados aos status ja existentes de `Order` (nenhum status
-novo foi criado):
+6 eventos. Os 5 primeiros sao mapeados aos status ja existentes de
+`Order` (nenhum status novo foi criado); o 6º e disparado por um job
+diario, nao por mudanca de status:
 
 | Evento (`NotificationEvent`) | Disparado quando |
 |---|---|
@@ -48,6 +49,7 @@ novo foi criado):
 | `PREPARING` | Pedido entra em `PREPARING` |
 | `OUT_FOR_DELIVERY` | Pedido entra em `OUT_FOR_DELIVERY` |
 | `DELIVERED` | Pedido entra em `DELIVERED` ou `COMPLETED` (cobre tanto entrega quanto retirada no balcao concluida) |
+| `CASHBACK_REMINDER` | Uma vez por dia, as 11h (`America/Sao_Paulo`), para pedidos de ONTEM com cashback disponivel — ver `cashback-reminder.job.ts` |
 
 `READY`/`AWAITING_PICKUP` nao tem notificacao propria — o cliente ja foi
 avisado em `PREPARING`, e o aviso final acontece em `DELIVERED`/`COMPLETED`.
@@ -65,6 +67,30 @@ regex):
 | `{valor}` | Total formatado em BRL (ex.: `R$ 30,00`) |
 | `{status}` | Rotulo do status atual em portugues |
 | `{telefone}` | Telefone do cliente formatado (ex.: `(11) 97070-6978`) |
+| `{cashback}` | Saldo de cashback do cliente, ja em BRL (ex.: `R$ 12,50`, ou `R$ 0,00`) — consultado NA HORA do envio, nunca guardado |
+
+## Lembrete diario de cashback (`CashbackReminderJob`)
+
+Roda uma vez por dia (`@Cron('0 11 * * *', { timeZone: 'America/Sao_Paulo' })`)
+e avisa quem fez pedido ontem (qualquer status exceto `CANCELED`) do
+saldo de cashback disponivel. Escolhas deliberadas:
+
+- **Cron, nao fila/Redis.** O projeto nao tem fila hoje (ver secao
+  "Sem fila externa" acima) — mesmo padrao ja usado em
+  `CashbackExpiryJob`/`ExpiredPixJob`. Sobrevive a redeploy/restart
+  porque nao depende de nenhum timer em memoria: a cada execucao,
+  consulta o banco por pedidos na janela `[ontem, hoje)`, entao um
+  restart no meio do caminho so adia a proxima varredura, nunca perde o
+  lembrete.
+- **Idempotencia via `NotificationLog`**, a MESMA tabela e o MESMO
+  criterio (`orderId + event + success`) dos outros 5 eventos — nenhuma
+  coluna nova, nenhuma tabela nova.
+- **Saldo zero: nunca manda mensagem**, nem grava log — o pedido so
+  fica elegivel na janela de datas de HOJE; amanha a consulta ja olha
+  para outro intervalo, entao nao ha risco de tentar para sempre nem de
+  nunca mais tentar.
+- **Saldo sempre consultado no momento do envio** (`CashbackService.saldoDoCliente`),
+  nunca o valor de quando o pedido foi feito.
 
 ## Garantias
 
